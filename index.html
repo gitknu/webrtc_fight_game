@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pixel Brawler WebRTC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+    :root {
+        --bg-color: #222;
+        --p1-color: #2e7d32; /* Green */
+        --p2-color: #c62828; /* Red */
+        --ui-bg: #fff;
+        --accent: #0b5394;
+        --shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+    body {
+        margin: 0; padding: 0;
+        background-color: var(--bg-color);
+        color: black;
+        font-family: 'Montserrat', sans-serif;
+        height: 100dvh; width: 100%;
+        overflow: hidden; 
+        display: flex; flex-direction: column; 
+    }
+
+    /* --- UI LAYERS (Connection Screens) --- */
+    #ui-layer {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: #f4f4f4; z-index: 200;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 10px;
+    }
+    
+    .card {
+        background: var(--ui-bg); padding: 1rem; border-radius: 1.5rem;
+        text-align: center; width: 100%; max-width: 400px;
+        box-shadow: var(--shadow); border: 2px solid #ccc;
+        display: flex; flex-direction: column; gap: 15px; align-items: center;
+    }
+    
+    .hidden { display: none !important; }
+
+    h2 { margin: 0; text-transform: uppercase; font-weight: 900; letter-spacing: -1px; }
+
+    /* Role Buttons */
+    .role-btn {
+        width: 100%; padding: 20px; border: none; border-radius: 1rem;
+        font-family: inherit; font-size: 1.5rem; font-weight: 800; color: white;
+        cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        transition: transform 0.1s;
+    }
+    .role-btn:active { transform: scale(0.96); }
+    .role-host { background: var(--p1-color); }
+    .role-join { background: var(--p2-color); }
+
+    /* Lock Interface (From original code) */
+    #lock-container {
+        display: flex; justify-content: center; gap: 5px; margin: 10px 0;
+        perspective: 500px;
+    }
+    .lock-roller {
+        width: 30px; height: 45px; background: #fff; border: 2px solid #999;
+        border-radius: 5px; font-size: 1.5rem; font-weight: 800;
+        display: flex; align-items: center; justify-content: center;
+        box-shadow: inset 0 0 5px rgba(0,0,0,0.1); cursor: pointer;
+    }
+    .lock-group { display: flex; gap: 2px; }
+    .lock-spacer { width: 10px; }
+    
+    .btn-primary {
+        background: var(--accent); color: white; border: none; padding: 12px;
+        border-radius: 10px; font-weight: 700; width: 100%; font-size: 1.1rem;
+        cursor: pointer; text-transform: uppercase;
+    }
+
+    /* --- GAME UI --- */
+    #game-layer {
+        display: flex; flex-direction: column; height: 100%; width: 100%;
+        position: relative;
+    }
+
+    /* Top Bar: Health */
+    #hud {
+        height: 60px; background: #333; display: flex; align-items: center; 
+        padding: 0 10px; gap: 10px; border-bottom: 2px solid #555;
+    }
+    .hp-box { flex: 1; display: flex; flex-direction: column; }
+    .hp-label { color: white; font-size: 0.7rem; font-weight: 700; margin-bottom: 2px;}
+    .hp-bar-bg { width: 100%; height: 20px; background: #555; border: 2px solid #000; skew: -10deg; }
+    .hp-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
+    
+    #p1-fill { background: var(--p1-color); transform-origin: left; }
+    #p2-fill { background: var(--p2-color); transform-origin: left; }
+    
+    #timer { 
+        width: 50px; text-align: center; color: yellow; font-weight: 900; font-size: 1.5rem; 
+        font-family: monospace; 
+    }
+
+    /* Game Field */
+    #canvas-container {
+        flex: 1; position: relative; background: #111; overflow: hidden;
+        background-image: linear-gradient(#1a1a1a 1px, transparent 1px), linear-gradient(90deg, #1a1a1a 1px, transparent 1px);
+        background-size: 20px 20px;
+        display: flex; justify-content: center; align-items: center;
+    }
+    canvas { background: transparent; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+
+    /* Waiting Overlay */
+    #waiting-overlay {
+        position: absolute; top:0; left:0; width:100%; height:100%;
+        background: rgba(0,0,0,0.85); color: white;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 50; text-align: center;
+    }
+
+    /* Bottom: Controls */
+    #controls {
+        height: 180px; background: #222; border-top: 2px solid #444;
+        display: flex; padding: 10px; gap: 20px; justify-content: space-between;
+    }
+
+    .d-pad {
+        display: flex; gap: 10px; align-items: center;
+    }
+    .action-pad {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+
+    .game-btn {
+        background: #444; border: 2px solid #666; color: white;
+        border-radius: 12px; font-weight: 800; font-size: 1.2rem;
+        display: flex; align-items: center; justify-content: center;
+        touch-action: none; cursor: pointer;
+        box-shadow: 0 4px 0 #000;
+        transition: transform 0.05s, box-shadow 0.05s;
+    }
+    .game-btn:active, .game-btn.pressed {
+        transform: translateY(4px); box-shadow: none; background: #555;
+    }
+    
+    /* Specific Button Styles */
+    #btn-left, #btn-right { width: 70px; height: 70px; }
+    #btn-atk { background: #b71c1c; width: 80px; height: 80px; grid-row: span 2; font-size: 0.9rem; }
+    #btn-jump { background: #f57f17; width: 70px; height: 60px; font-size: 0.8rem; }
+    #btn-block { background: #0d47a1; width: 70px; height: 60px; font-size: 0.8rem; }
+    
+    /* QR Scanner Box */
+    #reader { width: 250px; height: 250px; background: black; margin: 0 auto; overflow: hidden; }
+
+    /* Effects */
+    .hit-flash { animation: flash 0.1s; }
+    @keyframes flash { 0% { background: white; } 100% { background: #222; } }
+
+</style>
+</head>
+<body>
+
+<!-- 1. UI / CONNECTION LAYER -->
+<div id="ui-layer">
+    <h1 style="font-weight:900; margin-bottom:20px;">PIXEL BRAWLER</h1>
+    
+    <!-- MAIN MENU -->
+    <div id="menu-main" class="card">
+        <button class="role-btn role-host" onclick="setupHost()">
+            <i data-lucide="swords"></i> HOST GAME
+        </button>
+        <button class="role-btn role-join" onclick="setupJoin()">
+            <i data-lucide="gamepad-2"></i> JOIN GAME
+        </button>
+    </div>
+
+    <!-- HOST MENU -->
+    <div id="menu-host" class="card hidden">
+        <h3>Waiting for Player 2...</h3>
+        <div id="qr-container" style="background:white; padding:10px; border-radius:10px;"></div>
+        <div style="font-size: 2rem; font-weight:900; letter-spacing:3px; margin:10px 0; background:#eee; padding:5px 15px; border-radius:5px;" id="host-id-display">...</div>
+        <p>Scan or enter code on other device</p>
+        <button class="btn-primary" style="background:#666" onclick="location.reload()">Cancel</button>
+    </div>
+
+    <!-- JOIN MENU -->
+    <div id="menu-join" class="card hidden">
+        <h3>Enter Code</h3>
+        
+        <!-- ROTARY LOCK UI -->
+        <div id="lock-container">
+            <div class="lock-group">
+                <div class="lock-roller" id="d0" onclick="cycleDigit(0)">0</div>
+                <div class="lock-roller" id="d1" onclick="cycleDigit(1)">0</div>
+                <div class="lock-roller" id="d2" onclick="cycleDigit(2)">0</div>
+            </div>
+            <div class="lock-spacer"></div>
+            <div class="lock-group">
+                <div class="lock-roller" id="d3" onclick="cycleDigit(3)">0</div>
+                <div class="lock-roller" id="d4" onclick="cycleDigit(4)">0</div>
+                <div class="lock-roller" id="d5" onclick="cycleDigit(5)">0</div>
+            </div>
+        </div>
+
+        <button class="btn-primary" onclick="joinGame()">CONNECT</button>
+        
+        <div style="margin-top:15px; width:100%;">
+            <div id="reader"></div>
+        </div>
+        <button class="btn-primary" style="background:#666; margin-top:10px;" onclick="location.reload()">Back</button>
+    </div>
+
+    <div id="menu-loading" class="card hidden">
+        <i data-lucide="loader-2" class="spin" style="animation: spin 1s linear infinite;"></i>
+        <h3>Connecting...</h3>
+    </div>
+</div>
+
+<!-- 2. GAME LAYER -->
+<div id="game-layer" class="hidden">
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hp-box">
+            <span class="hp-label">PLAYER 1</span>
+            <div class="hp-bar-bg"><div id="p1-fill" class="hp-fill"></div></div>
+        </div>
+        <div id="timer">60</div>
+        <div class="hp-box" style="align-items: flex-end;">
+            <span class="hp-label">PLAYER 2</span>
+            <div class="hp-bar-bg"><div id="p2-fill" class="hp-fill"></div></div>
+        </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div id="canvas-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        
+        <div id="waiting-overlay">
+            <h2 id="wait-msg">WAITING FOR OPPONENT...</h2>
+            <button id="rematch-btn" class="btn-primary hidden" style="width:200px; margin-top:20px;" onclick="requestRematch()">REMATCH</button>
+        </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div id="controls">
+        <div class="d-pad">
+            <div class="game-btn" id="btn-left" data-key="left"><i data-lucide="arrow-left"></i></div>
+            <div class="game-btn" id="btn-right" data-key="right"><i data-lucide="arrow-right"></i></div>
+        </div>
+        <div class="action-pad">
+            <div class="game-btn" id="btn-jump" data-key="jump">JUMP</div>
+            <div class="game-btn" id="btn-block" data-key="block">BLK</div>
+            <div class="game-btn" id="btn-atk" data-key="atk">ATK</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* --- CONFIGURATION --- */
+    const APP_PREFIX = "px_brawl_";
+    const PEER_CONFIG = {}; // Uses default PeerJS cloud
+    const digits = [0,0,0,0,0,0];
+    
+    // Game Constants
+    const CANVAS_W = 800, CANVAS_H = 450;
+    const GROUND_Y = 380;
+    const PLAYER_W = 50, PLAYER_H = 100;
+    const GRAVITY = 0.8;
+    const SPEED = 5;
+    const JUMP_FORCE = -15;
+    const MAX_HP = 100;
+    const ATTACK_RANGE = 80;
+    const ATTACK_COOLDOWN = 30; // frames
+    
+    /* --- STATE --- */
+    let peer, conn;
+    let isHost = false;
+    let myId = null;
+    let gameLoopId;
+    let isConnected = false;
+    
+    // Input State
+    const inputs = {
+        p1: { left: false, right: false, jump: false, block: false, atk: false },
+        p2: { left: false, right: false, jump: false, block: false, atk: false }
+    };
+    
+    // Game State
+    let gameState = {
+        time: 60,
+        frameCount: 0,
+        winner: null,
+        p1: { x: 100, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: 1, state: 'idle', cooldown: 0, color: '#2e7d32' },
+        p2: { x: 600, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: -1, state: 'idle', cooldown: 0, color: '#c62828' }
+    };
+
+    lucide.createIcons();
+
+    /* --- UI FUNCTIONS --- */
+    function show(id) { document.getElementById(id).classList.remove('hidden'); }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+    
+    function cycleDigit(idx) {
+        digits[idx] = (digits[idx] + 1) % 10;
+        document.getElementById('d'+idx).innerText = digits[idx];
+    }
+    
+    function getCode() { return digits.join(''); }
+
+    /* --- SETUP HOST --- */
+    function setupHost() {
+        isHost = true;
+        myId = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        hide('menu-main');
+        show('menu-host');
+        document.getElementById('host-id-display').innerText = myId.slice(0,3) + ' ' + myId.slice(3);
+        
+        new QRCode(document.getElementById("qr-container"), { 
+            text: myId, width: 200, height: 200 
+        });
+
+        peer = new Peer(APP_PREFIX + myId);
+        
+        peer.on('open', () => { console.log('Host Ready'); });
+        
+        peer.on('connection', (c) => {
+            if(conn) { c.close(); return; } // Only 1 player
+            conn = c;
+            setupConnection();
+        });
+    }
+
+    /* --- SETUP JOIN --- */
+    function setupJoin() {
+        isHost = false;
+        hide('menu-main');
+        show('menu-join');
+        
+        // Setup QR Scanner
+        const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 200 }, false);
+        html5QrcodeScanner.render((decodedText) => {
+            handleCodeInput(decodedText);
+            html5QrcodeScanner.clear();
+        }, (err) => {});
+    }
+
+    function joinGame() {
+        handleCodeInput(getCode());
+    }
+
+    function handleCodeInput(code) {
+        code = code.replace(/\s/g, '');
+        if(code.length !== 6) return alert("Invalid Code");
+        
+        hide('menu-join');
+        show('menu-loading');
+        
+        peer = new Peer();
+        peer.on('open', () => {
+            conn = peer.connect(APP_PREFIX + code, { reliable: true });
+            setupConnection();
+        });
+        peer.on('error', err => {
+            alert("Connection Failed");
+            location.reload();
+        });
+    }
+
+    /* --- SHARED CONNECTION LOGIC --- */
+    function setupConnection() {
+        conn.on('open', () => {
+            isConnected = true;
+            document.getElementById('ui-layer').classList.add('hidden');
+            show('game-layer');
+            resizeCanvas();
+            
+            if (isHost) {
+                startGame();
+            } else {
+                document.getElementById('wait-msg').style.display = 'none'; // Client is ready
+            }
+        });
+
+        conn.on('data', (data) => {
+            if (isHost) {
+                // Host receives Input from P2
+                if(data.type === 'INPUT') inputs.p2 = data.state;
+                if(data.type === 'REMATCH') resetGame();
+            } else {
+                // Client receives Game State
+                if(data.type === 'STATE') {
+                    gameState = data.state;
+                    render();
+                    updateHUD();
+                    handleWinnerUI();
+                }
+            }
+        });
+
+        conn.on('close', () => {
+            alert("Opponent Disconnected");
+            location.reload();
+        });
+    }
+
+    /* --- INPUT HANDLING --- */
+    // Map Touch/Click to Input Object
+    const buttons = document.querySelectorAll('.game-btn');
+    
+    function setInput(key, pressed) {
+        if(isHost) {
+            inputs.p1[key] = pressed;
+        } else {
+            inputs.p2[key] = pressed; // Update local mirror (optional)
+            // Send to host
+            const myInputs = { ...inputs.p2 };
+            myInputs[key] = pressed;
+            inputs.p2[key] = pressed;
+            if(conn && conn.open) conn.send({ type: 'INPUT', state: myInputs });
+        }
+    }
+
+    buttons.forEach(btn => {
+        const key = btn.dataset.key;
+        
+        // Touch events
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); btn.classList.add('pressed'); setInput(key, true); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); btn.classList.remove('pressed'); setInput(key, false); });
+        
+        // Mouse events for desktop testing
+        btn.addEventListener('mousedown', () => { btn.classList.add('pressed'); setInput(key, true); });
+        btn.addEventListener('mouseup', () => { btn.classList.remove('pressed'); setInput(key, false); });
+        btn.addEventListener('mouseleave', () => { btn.classList.remove('pressed'); setInput(key, false); });
+    });
+
+    // Keyboard support
+    window.addEventListener('keydown', (e) => {
+        const map = { 'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowUp': 'jump', 'KeyZ': 'atk', 'KeyX': 'block' };
+        if(map[e.code]) setInput(map[e.code], true);
+    });
+    window.addEventListener('keyup', (e) => {
+        const map = { 'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowUp': 'jump', 'KeyZ': 'atk', 'KeyX': 'block' };
+        if(map[e.code]) setInput(map[e.code], false);
+    });
+
+
+    /* --- GAME ENGINE (HOST ONLY) --- */
+    function startGame() {
+        document.getElementById('wait-msg').style.display = 'none';
+        gameLoopId = requestAnimationFrame(gameLoop);
+        
+        // Timer Logic
+        setInterval(() => {
+            if(gameState.winner || !isConnected) return;
+            if(gameState.time > 0) gameState.time--;
+            else checkWinCondition();
+        }, 1000);
+    }
+    
+    function resetGame() {
+        gameState.p1.hp = MAX_HP; gameState.p1.x = 100; gameState.p1.y = GROUND_Y;
+        gameState.p2.hp = MAX_HP; gameState.p2.x = 600; gameState.p2.y = GROUND_Y;
+        gameState.time = 60;
+        gameState.winner = null;
+        conn.send({ type: 'STATE', state: gameState }); // Force sync reset
+    }
+
+    function requestRematch() {
+        if(isHost) resetGame();
+        else conn.send({ type: 'REMATCH' });
+        document.getElementById('rematch-btn').classList.add('hidden');
+        document.getElementById('wait-msg').innerText = "";
+    }
+
+    function updatePhysics(p, input, enemy) {
+        if(gameState.winner) return;
+
+        // Movement
+        if (p.state !== 'stun') {
+            if (input.left) { p.vx = -SPEED; p.dir = -1; }
+            else if (input.right) { p.vx = SPEED; p.dir = 1; }
+            else p.vx = 0;
+
+            if (input.jump && p.y === GROUND_Y) p.vy = JUMP_FORCE;
+        }
+
+        // Gravity
+        p.vy += GRAVITY;
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Ground Collision
+        if (p.y > GROUND_Y) { p.y = GROUND_Y; p.vy = 0; }
+        
+        // Wall Collision
+        if (p.x < 0) p.x = 0;
+        if (p.x > CANVAS_W - PLAYER_W) p.x = CANVAS_W - PLAYER_W;
+
+        // Attacks
+        if (p.cooldown > 0) p.cooldown--;
+        
+        if (input.atk && p.cooldown === 0 && p.state !== 'stun') {
+            p.state = 'attack';
+            p.cooldown = ATTACK_COOLDOWN;
+            
+            // Hitbox check
+            const dist = Math.abs(p.x - enemy.x);
+            const facingEnemy = (p.x < enemy.x && p.dir === 1) || (p.x > enemy.x && p.dir === -1);
+            
+            // Simple hitbox logic
+            if (dist < ATTACK_RANGE && Math.abs(p.y - enemy.y) < 50 && facingEnemy) {
+                if(inputs[enemy === gameState.p1 ? 'p1' : 'p2'].block) {
+                    // Blocked (Small chip damage)
+                    enemy.hp -= 2;
+                    enemy.vx = p.dir * 10; // Pushback
+                } else {
+                    // Hit
+                    enemy.hp -= 10;
+                    enemy.state = 'stun';
+                    enemy.vy = -5; // Pop up
+                    enemy.vx = p.dir * 10; // Knockback
+                    setTimeout(() => enemy.state = 'idle', 300);
+                }
+            }
+        } else if (p.cooldown < ATTACK_COOLDOWN - 10 && p.state === 'attack') {
+            p.state = 'idle';
+        }
+        
+        // Block Visual
+        if(input.block && p.state === 'idle') p.state = 'block';
+        if(!input.block && p.state === 'block') p.state = 'idle';
+    }
+
+    function checkWinCondition() {
+        if (gameState.p1.hp <= 0 && gameState.p2.hp <= 0) gameState.winner = "DRAW";
+        else if (gameState.p1.hp <= 0) gameState.winner = "PLAYER 2 WINS";
+        else if (gameState.p2.hp <= 0) gameState.winner = "PLAYER 1 WINS";
+        else if (gameState.time === 0) {
+            gameState.winner = (gameState.p1.hp > gameState.p2.hp) ? "PLAYER 1 WINS" : "PLAYER 2 WINS";
+            if (gameState.p1.hp === gameState.p2.hp) gameState.winner = "DRAW";
+        }
+    }
+
+    function gameLoop() {
+        if (!isHost) return;
+
+        updatePhysics(gameState.p1, inputs.p1, gameState.p2);
+        updatePhysics(gameState.p2, inputs.p2, gameState.p1);
+        checkWinCondition();
+        
+        // Network Sync
+        if(conn && conn.open) {
+            conn.send({ type: 'STATE', state: gameState });
+        }
+
+        render();
+        updateHUD();
+        handleWinnerUI();
+        
+        requestAnimationFrame(gameLoop);
+    }
+
+    /* --- RENDERING --- */
+    const cvs = document.getElementById('gameCanvas');
+    const ctx = cvs.getContext('2d');
+
+    function resizeCanvas() {
+        // Keep aspect ratio
+        const container = document.getElementById('canvas-container');
+        const scale = Math.min(container.clientWidth / CANVAS_W, container.clientHeight / CANVAS_H);
+        cvs.style.width = (CANVAS_W * scale) + 'px';
+        cvs.style.height = (CANVAS_H * scale) + 'px';
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function render() {
+        // Clear
+        ctx.fillStyle = '#111'; // Transparent handled by CSS
+        ctx.clearRect(0,0, CANVAS_W, CANVAS_H);
+
+        // Ground
+        ctx.fillStyle = '#444';
+        ctx.fillRect(0, GROUND_Y + PLAYER_H, CANVAS_W, 20);
+
+        // Draw Player 1
+        drawPlayer(gameState.p1);
+        // Draw Player 2
+        drawPlayer(gameState.p2);
+    }
+
+    function drawPlayer(p) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        
+        // Body
+        ctx.fillStyle = p.color;
+        if(p.state === 'stun') ctx.fillStyle = '#555'; // Flash grey when hit
+        if(p.state === 'block') ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+        
+        ctx.fillRect(0, 0, PLAYER_W, PLAYER_H);
+        if(p.state === 'block') ctx.strokeRect(0,0, PLAYER_W, PLAYER_H);
+
+        // Direction Indicator (Eyes)
+        ctx.fillStyle = 'white';
+        const eyeX = p.dir === 1 ? 30 : 5;
+        ctx.fillRect(eyeX, 20, 15, 15);
+        
+        // Attack Visual
+        if(p.state === 'attack') {
+            ctx.fillStyle = 'yellow';
+            const punchX = p.dir === 1 ? PLAYER_W : -40;
+            ctx.fillRect(punchX, 40, 40, 20);
+        }
+
+        ctx.restore();
+    }
+
+    function updateHUD() {
+        document.getElementById('p1-fill').style.width = Math.max(0, (gameState.p1.hp / MAX_HP) * 100) + '%';
+        document.getElementById('p2-fill').style.width = Math.max(0, (gameState.p2.hp / MAX_HP) * 100) + '%';
+        document.getElementById('timer').innerText = gameState.time;
+    }
+
+    function handleWinnerUI() {
+        if(gameState.winner) {
+            const overlay = document.getElementById('waiting-overlay');
+            const msg = document.getElementById('wait-msg');
+            const btn = document.getElementById('rematch-btn');
+            
+            overlay.style.display = 'flex';
+            msg.style.display = 'block';
+            msg.innerText = gameState.winner;
+            btn.classList.remove('hidden');
+        } else {
+             document.getElementById('waiting-overlay').style.display = 'none';
+        }
+    }
+</script>
+</body>
+</html>
