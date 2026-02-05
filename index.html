@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pixel Brawler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- Libraries -->
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<style>
+    /* --- THEME FROM PRESENTATION APP (CONNECTION UI) --- */
+    :root {
+        --color-bg: #222222;
+        --color-card: #ffffff;
+        --color-attention-high: #b80000; /* Red for Join/P2 */
+        --color-attention-med: #0b5394;  /* Blue for Host/P1 */
+        --color-success: #2e7d32;
+        --color-error: #c62828;
+        --color-text: #000000;
+        --color-border: #cccccc;
+        --shadow: 0 4px 20px rgba(0,0,0,0.15);
+        
+        /* Game Specific Colors */
+        --p1-color: #2e7d32; 
+        --p2-color: #c62828;
+    }
+
+    * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+    body {
+        margin: 0; padding: 0;
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 16px;
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        height: 100dvh; width: 100%;
+        overflow: hidden; 
+        display: flex; flex-direction: column; 
+    }
+
+    /* --- UI LAYERS (Connection Screens - Imported from Source B) --- */
+    #ui-layer {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(244, 244, 244, 1); z-index: 200;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        padding: 5px;
+        overflow-y: auto;
+    }
+    
+    .card {
+        background: var(--color-card); 
+        color: var(--color-text);
+        padding: 0.6rem; 
+        border-radius: 1.2rem;
+        text-align: center; 
+        width: 100%; max-width: 400px;
+        height: auto;
+        max-height: 100%; 
+        display: flex; flex-direction: column; 
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: var(--shadow);
+        border: 2px solid var(--color-border);
+        gap: 10px;
+    }
+    
+    .hidden { display: none !important; }
+    h3 { margin: 0; color: var(--color-text); font-weight: 800; font-size: 1.2rem; text-transform: uppercase; }
+
+    /* Role Buttons */
+    #role-menu {
+        display: flex; flex-direction: column; gap: 15px;
+        width: 100%; max-width: 500px;
+        height: 100%; padding: 10px 0;
+        justify-content: center;
+    }
+
+    .role-btn {
+        flex: 1; max-height: 40vh; 
+        border: none; border-radius: 1.2rem;
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(1.5rem, 5vw, 2.2rem); 
+        font-weight: 900;
+        color: white; cursor: pointer;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 15px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+        transition: transform 0.1s;
+        text-transform: uppercase;
+    }
+    .role-btn:active { transform: scale(0.97); }
+    .role-host { background-color: var(--p1-color); border: 4px solid #1b5e20; }
+    .role-join { background-color: var(--p2-color); border: 4px solid #b71c1c; }
+
+    /* Action Bar */
+    .action-bar { display: flex; width: 100%; gap: 10px; margin-top: 5px; flex-shrink: 0; }
+    
+    button.btn-primary {
+        background: var(--color-attention-med); 
+        color: white; border: none; padding: 0.8rem; 
+        font-size: 1.1rem; font-family: 'Montserrat', sans-serif; font-weight: 700;
+        border-radius: 0.8rem; cursor: pointer; flex: 2; 
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2); text-transform: uppercase;
+    }
+    button.btn-primary:active { transform: scale(0.98); }
+
+    button.btn-secondary { 
+        background: white; color: #333; border: 2px solid #ccc; 
+        padding: 0.6rem; font-size: 1rem; font-weight: 600;
+        border-radius: 0.8rem; cursor: pointer; flex: 1; 
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    .icon-btn-group { display: flex; gap: 8px; margin-top: 5px; }
+    .icon-btn {
+        background: #f0f0f0; border: 1px solid #ddd;
+        border-radius: 8px; padding: 6px 12px;
+        color: #555; cursor: pointer;
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; font-weight: 600;
+        transition: all 0.2s;
+    }
+    .icon-btn:active { transform: scale(0.95); background: #e0e0e0; }
+    .btn-success { background: #e8f5e9; color: var(--color-success); border-color: var(--color-success); }
+
+    /* DIPLOMAT LOCK UI */
+    #lock-ui-wrapper {
+        display: flex; flex-direction: column; width: 100%; align-items: center;
+        margin: 5px 0; position: relative; 
+    }
+    #ghost-input {
+        position: absolute; opacity: 0; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;
+    }
+    #lock-container {
+        display: flex; justify-content: center; align-items: center;
+        gap: 4px; width: 100%; user-select: none; flex-shrink: 0;
+        perspective: 500px; padding: 5px;
+    }
+    #lock-container.focused { background-color: rgba(0,0,0,0.05); border-radius: 10px; }
+    .lock-group { display: flex; gap: 2px; }
+    .lock-spacer { width: 10px; }
+    
+    .lock-roller {
+        width: 32px; height: 50px; background: #fff;
+        border: 2px solid #ccc; border-radius: 6px;
+        font-size: 1.6rem; font-weight: 800; color: var(--color-text);
+        display: flex; align-items: center; justify-content: center;
+        cursor: grab; position: relative; overflow: hidden;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.1); touch-action: none; 
+    }
+    .lock-roller::before {
+        content: ''; position: absolute; top:0; left:0; right:0; height: 12px;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.2), transparent); pointer-events: none;
+    }
+    .lock-roller::after {
+        content: ''; position: absolute; bottom:0; left:0; right:0; height: 12px;
+        background: linear-gradient(to top, rgba(0,0,0,0.2), transparent); pointer-events: none;
+    }
+    .lock-roller span { z-index: 1; pointer-events: none; }
+    
+    .lock-arrow-row { display: flex; justify-content: center; gap: 4px; width: 100%; color: #999; margin: 2px 0; }
+    .lock-arrow-group { display: flex; gap: 2px; }
+    .lock-arrow-spacer { width: 10px; }
+    .arrow-icon { width: 32px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .arrow-icon:active { color: var(--color-attention-med); }
+    .arrow-icon svg { width: 16px; height: 16px; stroke-width: 3px; }
+
+    /* QR */
+    #reader {
+        width: 100%; max-width: 300px; margin: 0 auto;
+        background: #000; border: 2px solid var(--color-attention-med);
+        border-radius: 10px; overflow: hidden; min-height: 250px;
+    }
+    #reader video { width: 100%; height: 100%; object-fit: cover; }
+    #html5-qrcode-anchor-scan-type-change { display: none !important; }
+
+    #qr-container {
+        background:white; padding:5px; display:inline-flex; 
+        align-items: center; justify-content: center;
+        border: 2px solid var(--color-attention-med); border-radius: 10px;
+        max-height: 25vh; aspect-ratio: 1/1;
+    }
+    #qr-container img { max-width: 100%; max-height: 100%; height: auto !important; }
+
+    .id-display {
+        font-size: 1.5rem; font-weight: 800; color: var(--color-attention-med);
+        background: #f0f8ff; padding: 5px 10px; border-radius: 10px;
+        border: 2px dashed var(--color-attention-med); letter-spacing: 2px;
+        user-select: text;
+    }
+    .id-label { font-size: 0.7rem; text-transform: uppercase; color: #666; font-weight: 700; }
+
+    /* --- GAME UI (FROM SOURCE A) --- */
+    #game-layer {
+        display: flex; flex-direction: column; height: 100%; width: 100%;
+        position: relative;
+    }
+
+    #hud {
+        height: 60px; background: #333; display: flex; align-items: center; 
+        padding: 0 10px; gap: 10px; border-bottom: 2px solid #555;
+    }
+    .hp-box { flex: 1; display: flex; flex-direction: column; }
+    .hp-label { color: white; font-size: 0.7rem; font-weight: 700; margin-bottom: 2px;}
+    .hp-bar-bg { width: 100%; height: 20px; background: #555; border: 2px solid #000; skew: -10deg; }
+    .hp-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
+    
+    #p1-fill { background: var(--p1-color); transform-origin: left; }
+    #p2-fill { background: var(--p2-color); transform-origin: left; }
+    
+    #timer { 
+        width: 50px; text-align: center; color: yellow; font-weight: 900; font-size: 1.5rem; 
+        font-family: monospace; 
+    }
+
+    #canvas-container {
+        flex: 1; position: relative; background: #111; overflow: hidden;
+        background-image: linear-gradient(#1a1a1a 1px, transparent 1px), linear-gradient(90deg, #1a1a1a 1px, transparent 1px);
+        background-size: 20px 20px;
+        display: flex; justify-content: center; align-items: center;
+    }
+    canvas { background: transparent; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+
+    #waiting-overlay {
+        position: absolute; top:0; left:0; width:100%; height:100%;
+        background: rgba(0,0,0,0.85); color: white;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        z-index: 50; text-align: center;
+    }
+
+    #controls {
+        height: 180px; background: #222; border-top: 2px solid #444;
+        display: flex; padding: 10px; gap: 20px; justify-content: space-between;
+        touch-action: none;
+    }
+
+    .d-pad { display: flex; gap: 10px; align-items: center; }
+    .action-pad { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    .game-btn {
+        background: #444; border: 2px solid #666; color: white;
+        border-radius: 12px; font-weight: 800; font-size: 1.2rem;
+        display: flex; align-items: center; justify-content: center;
+        touch-action: none; cursor: pointer;
+        box-shadow: 0 4px 0 #000;
+        transition: transform 0.05s, box-shadow 0.05s;
+    }
+    .game-btn:active, .game-btn.pressed {
+        transform: translateY(4px); box-shadow: none; background: #555;
+    }
+    
+    #btn-left, #btn-right { width: 70px; height: 70px; }
+    #btn-atk { background: #b71c1c; width: 80px; height: 80px; grid-row: span 2; font-size: 0.9rem; }
+    #btn-jump { background: #f57f17; width: 70px; height: 60px; font-size: 0.8rem; }
+    #btn-block { background: #0d47a1; width: 70px; height: 60px; font-size: 0.8rem; }
+    
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+</style>
+</head>
+<body>
+
+<!-- 1. UI LAYER (From Source B - The Presentation App Logic) -->
+<div id="ui-layer">
+    
+    <!-- MAIN MENU -->
+    <div id="role-menu">
+        <!-- Logo Text -->
+        <h1 style="text-align:center; margin:0; line-height:0.9; font-weight:900; font-size:3rem; color:#333;">PIXEL<br><span style="color:var(--p2-color)">BRAWLER</span></h1>
+        
+        <button class="role-btn role-host" onclick="setupHostUI()">
+            <div style="display:flex; flex-direction:column; align-items:center;">
+                <i data-lucide="swords" width="64" height="64"></i>
+                CREATE GAME
+            </div>
+        </button>
+        <button class="role-btn role-join" onclick="setupJoinUI()">
+             <div style="display:flex; flex-direction:column; align-items:center;">
+                <i data-lucide="gamepad-2" width="64" height="64"></i>
+                JOIN GAME
+            </div>
+        </button>
+    </div>
+
+    <!-- JOIN MENU (DIPLOMAT STYLE) -->
+    <div id="join-menu" class="card hidden">
+        <h3>PLAYER 2 (JOIN)</h3>
+        
+        <!-- SCANNER -->
+        <div id="reader"></div> 
+
+        <div id="lock-ui-wrapper">
+            <!-- Ghost Input -->
+            <input type="tel" id="ghost-input" maxlength="9" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            
+            <!-- TOP ARROWS -->
+            <div class="lock-arrow-row">
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(0, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(1, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(2, 1)"><i data-lucide="chevron-up"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(3, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(4, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(5, 1)"><i data-lucide="chevron-up"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(6, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(7, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(8, 1)"><i data-lucide="chevron-up"></i></div>
+                </div>
+            </div>
+
+            <!-- ROLLERS -->
+            <div id="lock-container" onclick="triggerKeyboard()">
+                <div class="lock-group">
+                    <div class="lock-roller" id="d0"><span>0</span></div>
+                    <div class="lock-roller" id="d1"><span>0</span></div>
+                    <div class="lock-roller" id="d2"><span>0</span></div>
+                </div>
+                <div class="lock-spacer"></div>
+                <div class="lock-group">
+                    <div class="lock-roller" id="d3"><span>0</span></div>
+                    <div class="lock-roller" id="d4"><span>0</span></div>
+                    <div class="lock-roller" id="d5"><span>0</span></div>
+                </div>
+                <div class="lock-spacer"></div>
+                <div class="lock-group">
+                    <div class="lock-roller" id="d6"><span>0</span></div>
+                    <div class="lock-roller" id="d7"><span>0</span></div>
+                    <div class="lock-roller" id="d8"><span>0</span></div>
+                </div>
+            </div>
+
+            <!-- BOTTOM ARROWS -->
+            <div class="lock-arrow-row">
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(0, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(1, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(2, -1)"><i data-lucide="chevron-down"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(3, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(4, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(5, -1)"><i data-lucide="chevron-down"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(6, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(7, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(8, -1)"><i data-lucide="chevron-down"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <button class="icon-btn" style="width:100%; justify-content:center;" onclick="pasteId()">
+            <i data-lucide="clipboard-paste"></i> PASTE ID
+        </button>
+
+        <div class="action-bar">
+            <button class="btn-secondary" onclick="location.reload()">
+                <i data-lucide="arrow-left"></i>
+            </button>
+            <button class="btn-primary" onclick="connectAsClient()">
+                <i data-lucide="plug"></i> CONNECT
+            </button>
+        </div>
+    </div>
+
+    <!-- HOST MENU -->
+    <div id="host-menu" class="card hidden">
+        <h3>PLAYER 1 (HOST)</h3>
+        
+        <div id="qr-container"></div>
+        
+        <div style="display:flex; flex-direction:column; align-items: center; gap:2px; width:100%;">
+            <span class="id-label">GAME ID</span>
+            <div id="host-id-display" class="id-display">...</div>
+            
+            <div class="icon-btn-group">
+                <button class="icon-btn" onclick="copyId()">
+                    <i data-lucide="copy"></i> COPY
+                </button>
+                <button class="icon-btn" onclick="shareId()">
+                    <i data-lucide="share-2"></i> SHARE
+                </button>
+            </div>
+        </div>
+        
+        <div style="font-size:0.9rem; color:#555; margin:10px 0;">
+            Waiting for Player 2...
+        </div>
+
+        <button class="btn-secondary" style="width:100%" onclick="location.reload()">
+            <i data-lucide="arrow-left"></i> CANCEL
+        </button>
+    </div>
+
+    <!-- LOADING -->
+    <div id="loading-menu" class="card hidden">
+        <i data-lucide="loader-2" class="spin" style="width: 48px; height: 48px; color: var(--color-attention-med);"></i>
+        <h3 id="loading-text" style="margin-top:20px;">Connecting...</h3>
+        <button class="btn-secondary" onclick="location.reload()" style="margin-top:20px;">
+            <i data-lucide="x"></i> CANCEL
+        </button>
+    </div>
+</div>
+
+<!-- 2. GAME LAYER (From Source A - The Game Logic) -->
+<div id="game-layer" class="hidden">
+    <!-- HUD -->
+    <div id="hud">
+        <div class="hp-box">
+            <span class="hp-label">PLAYER 1</span>
+            <div class="hp-bar-bg"><div id="p1-fill" class="hp-fill"></div></div>
+        </div>
+        <div id="timer">60</div>
+        <div class="hp-box" style="align-items: flex-end;">
+            <span class="hp-label">PLAYER 2</span>
+            <div class="hp-bar-bg"><div id="p2-fill" class="hp-fill"></div></div>
+        </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div id="canvas-container">
+        <canvas id="gameCanvas" width="800" height="450"></canvas>
+        
+        <div id="waiting-overlay">
+            <h2 id="wait-msg">WAITING FOR OPPONENT...</h2>
+            <button id="rematch-btn" class="btn-primary hidden" style="width:200px; margin-top:20px;" onclick="requestRematch()">REMATCH</button>
+        </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div id="controls">
+        <div class="d-pad">
+            <div class="game-btn" id="btn-left" data-key="left"><i data-lucide="arrow-left"></i></div>
+            <div class="game-btn" id="btn-right" data-key="right"><i data-lucide="arrow-right"></i></div>
+        </div>
+        <div class="action-pad">
+            <div class="game-btn" id="btn-jump" data-key="jump">JUMP</div>
+            <div class="game-btn" id="btn-block" data-key="block">BLK</div>
+            <div class="game-btn" id="btn-atk" data-key="atk">ATK</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* --- PART 1: UI & CONNECTION LOGIC (Imported from Source B) --- */
+    const APP_PREFIX = "px_brawl_";
+    const lockDigits = [0,0,0,0,0,0,0,0,0];
+    let html5QrcodeScanner = null;
+    let peer, conn;
+    let myIdRaw = null;
+    let isHost = false;
+    let isConnected = false;
+
+    lucide.createIcons();
+
+    /* --- INITIALIZATION --- */
+    window.onload = () => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('host')) {
+            // Auto Join Flow
+            document.getElementById('role-menu').classList.add('hidden');
+            joinGame(params.get('host'));
+        }
+        initLockInterface();
+        initManualInputListener();
+    };
+
+    /* --- LOCK INTERFACE LOGIC --- */
+    function initLockInterface() {
+        for (let i = 0; i < 9; i++) setupRotaryLock(i);
+        updateManualInput();
+    }
+    
+    function triggerKeyboard() {
+        const inp = document.getElementById('ghost-input');
+        if(inp) { inp.focus(); document.getElementById('lock-container').classList.add('focused'); }
+    }
+    
+    function initManualInputListener() {
+        const inp = document.getElementById('ghost-input');
+        if(!inp) return;
+        inp.addEventListener('blur', () => { document.getElementById('lock-container').classList.remove('focused'); });
+        inp.addEventListener('input', (e) => {
+            const val = e.target.value.replace(/[^0-9]/g, '');
+            for(let i=0; i<9; i++) {
+                lockDigits[i] = (i < val.length) ? parseInt(val[i]) : 0;
+                const el = document.getElementById('d' + i);
+                if(el) el.querySelector('span').innerText = lockDigits[i];
+            }
+        });
+    }
+    
+    function updateManualInput() {
+        const inp = document.getElementById('ghost-input');
+        if(inp) inp.value = lockDigits.join('').replace(/^0+/, '');
+    }
+
+    function setupRotaryLock(index) {
+        const el = document.getElementById('d' + index);
+        if (!el) return;
+        let startY = 0; let isDragging = false;
+        
+        el.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; isDragging = true; }, {passive: false});
+        el.addEventListener('touchmove', (e) => {
+            if(!isDragging) return;
+            const delta = startY - e.touches[0].clientY;
+            if (Math.abs(delta) > 5) e.preventDefault(); 
+            if (Math.abs(delta) > 25) {
+                changeDigit(index, delta > 0 ? 1 : -1); startY = e.touches[0].clientY; 
+            }
+        }, {passive: false});
+        el.addEventListener('touchend', () => { isDragging = false; });
+    }
+
+    function changeDigit(index, delta) {
+        lockDigits[index] = (lockDigits[index] + delta + 10) % 10;
+        document.getElementById('d'+index).querySelector('span').innerText = lockDigits[index];
+        updateManualInput();
+    }
+
+    function getLockCode() { return lockDigits.join(''); }
+
+    /* --- COPY / PASTE / SHARE --- */
+    async function copyId() {
+        const link = window.location.href.split('?')[0] + '?host=' + myIdRaw;
+        try { await navigator.clipboard.writeText(link); alert("Link copied!"); } catch (err) {}
+    }
+    async function shareId() {
+        const link = window.location.href.split('?')[0] + '?host=' + myIdRaw;
+        if (navigator.share) { try { await navigator.share({ title: 'Pixel Brawler', url: link }); } catch (err) {} } 
+        else { copyId(); }
+    }
+    async function pasteId() {
+        try {
+            const text = await navigator.clipboard.readText();
+            let numbers = text.replace(/\D/g, ''); 
+            if (text.includes('host=')) {
+                const match = text.match(/host=([0-9]+)/);
+                if (match && match[1]) numbers = match[1];
+            }
+            if(numbers.length > 0) {
+                for(let i=0; i<9; i++) {
+                    lockDigits[i] = (i < numbers.length) ? parseInt(numbers[i]) : 0;
+                    document.getElementById('d'+i).querySelector('span').innerText = lockDigits[i];
+                }
+                updateManualInput();
+            }
+        } catch(e) {}
+    }
+
+    /* --- HOST SETUP (From Speaker Menu) --- */
+    function generateShortId() { return Math.floor(100000000 + Math.random() * 900000000).toString(); }
+
+    function setupHostUI() {
+        isHost = true;
+        document.getElementById('role-menu').classList.add('hidden');
+        document.getElementById('host-menu').classList.remove('hidden');
+        
+        myIdRaw = generateShortId();
+        document.getElementById('host-id-display').innerText = myIdRaw.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3");
+        
+        // QR Code
+        const fullUrl = window.location.href.split('?')[0] + '?host=' + myIdRaw;
+        document.getElementById("qr-container").innerHTML = "";
+        new QRCode(document.getElementById("qr-container"), { 
+            text: fullUrl, width: 200, height: 200, colorDark: "#000000"
+        });
+
+        peer = new Peer(APP_PREFIX + myIdRaw);
+        
+        peer.on('open', () => { console.log('Host Ready'); });
+        
+        peer.on('connection', (c) => {
+            if(conn) { c.close(); return; } 
+            conn = c;
+            transitionToGame();
+        });
+        
+        peer.on('error', err => {
+            if(err.type === 'unavailable-id') {
+                peer.destroy(); setTimeout(setupHostUI, 200); // Retry ID gen
+            } else {
+                alert("Error: " + err.type);
+            }
+        });
+    }
+
+    /* --- JOIN SETUP (From Listener Menu) --- */
+    function setupJoinUI() {
+        isHost = false;
+        document.getElementById('role-menu').classList.add('hidden');
+        document.getElementById('join-menu').classList.remove('hidden');
+
+        // Init Scanner
+        setTimeout(() => {
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+                fps: 10, qrbox: { width: 200, height: 200 }, showTorchButtonIfSupported: true
+            }, false);
+            html5QrcodeScanner.render((decodedText) => {
+                let hostId = decodedText;
+                try {
+                    const url = new URL(decodedText);
+                    const params = new URLSearchParams(url.search);
+                    if(params.get('host')) hostId = params.get('host');
+                } catch(e) {}
+                joinGame(hostId);
+                if(html5QrcodeScanner) html5QrcodeScanner.clear();
+            }, (err) => {});
+        }, 300);
+    }
+
+    function connectAsClient() {
+        joinGame(getLockCode());
+    }
+
+    function joinGame(hostId) {
+        if(!hostId) return;
+        hostId = hostId.toString().replace(/\D/g, ''); // Extract only digits
+        if(hostId.length < 5) return alert("Invalid ID");
+
+        document.getElementById('join-menu').classList.add('hidden');
+        document.getElementById('loading-menu').classList.remove('hidden');
+        document.getElementById('loading-text').innerText = "Connecting to " + hostId + "...";
+
+        peer = new Peer();
+        peer.on('open', () => {
+            conn = peer.connect(APP_PREFIX + hostId, { reliable: true });
+            
+            // Timeout safety
+            setTimeout(() => {
+                if(!isConnected) {
+                    alert("Host not found.");
+                    location.href = window.location.href.split('?')[0]; 
+                }
+            }, 5000);
+
+            transitionToGame();
+        });
+        
+        peer.on('error', err => {
+            alert("Connection Failed: " + err.type);
+            location.href = window.location.href.split('?')[0];
+        });
+    }
+
+    function transitionToGame() {
+        conn.on('open', () => {
+            isConnected = true;
+            document.getElementById('ui-layer').classList.add('hidden');
+            document.getElementById('game-layer').classList.remove('hidden');
+            resizeCanvas();
+            
+            // Re-render lucide icons in the game layer just in case
+            lucide.createIcons();
+
+            if (isHost) {
+                startGame();
+            } else {
+                document.getElementById('wait-msg').style.display = 'none'; 
+            }
+            
+            setupGameDataChannels();
+        });
+        
+        conn.on('close', () => {
+             alert("Disconnected");
+             location.href = window.location.href.split('?')[0];
+        });
+    }
+
+    /* --- PART 2: GAME LOGIC (Imported from Source A) --- */
+    
+    // Game Constants
+    const CANVAS_W = 800, CANVAS_H = 450;
+    const GROUND_Y = 380;
+    const PLAYER_W = 50, PLAYER_H = 100;
+    const GRAVITY = 0.8;
+    const SPEED = 5;
+    const JUMP_FORCE = -15;
+    const MAX_HP = 100;
+    const ATTACK_RANGE = 80;
+    const ATTACK_COOLDOWN = 30; // frames
+    
+    // Input State
+    const inputs = {
+        p1: { left: false, right: false, jump: false, block: false, atk: false },
+        p2: { left: false, right: false, jump: false, block: false, atk: false }
+    };
+    
+    // Game State
+    let gameState = {
+        time: 60,
+        frameCount: 0,
+        winner: null,
+        p1: { x: 100, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: 1, state: 'idle', cooldown: 0, color: '#2e7d32' },
+        p2: { x: 600, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: -1, state: 'idle', cooldown: 0, color: '#c62828' }
+    };
+    
+    let gameLoopId;
+
+    function setupGameDataChannels() {
+        conn.on('data', (data) => {
+            if (isHost) {
+                // Host receives Input from P2
+                if(data.type === 'INPUT') inputs.p2 = data.state;
+                if(data.type === 'REMATCH') resetGame();
+            } else {
+                // Client receives Game State
+                if(data.type === 'STATE') {
+                    gameState = data.state;
+                    render();
+                    updateHUD();
+                    handleWinnerUI();
+                }
+            }
+        });
+    }
+
+    /* --- INPUT HANDLING --- */
+    const buttons = document.querySelectorAll('.game-btn');
+    
+    function setInput(key, pressed) {
+        if(isHost) {
+            inputs.p1[key] = pressed;
+        } else {
+            // Client inputs
+            const myInputs = { ...inputs.p2 };
+            myInputs[key] = pressed;
+            inputs.p2[key] = pressed; // Predictive local update
+            if(conn && conn.open) conn.send({ type: 'INPUT', state: myInputs });
+        }
+    }
+
+    buttons.forEach(btn => {
+        const key = btn.dataset.key;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); btn.classList.add('pressed'); setInput(key, true); });
+        btn.addEventListener('touchend', (e) => { e.preventDefault(); btn.classList.remove('pressed'); setInput(key, false); });
+        
+        // Mouse for testing
+        btn.addEventListener('mousedown', () => { btn.classList.add('pressed'); setInput(key, true); });
+        btn.addEventListener('mouseup', () => { btn.classList.remove('pressed'); setInput(key, false); });
+        btn.addEventListener('mouseleave', () => { btn.classList.remove('pressed'); setInput(key, false); });
+    });
+
+    window.addEventListener('keydown', (e) => {
+        const map = { 'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowUp': 'jump', 'KeyZ': 'atk', 'KeyX': 'block' };
+        if(map[e.code]) setInput(map[e.code], true);
+    });
+    window.addEventListener('keyup', (e) => {
+        const map = { 'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowUp': 'jump', 'KeyZ': 'atk', 'KeyX': 'block' };
+        if(map[e.code]) setInput(map[e.code], false);
+    });
+
+    /* --- GAME ENGINE (HOST ONLY) --- */
+    function startGame() {
+        document.getElementById('wait-msg').style.display = 'none';
+        gameLoopId = requestAnimationFrame(gameLoop);
+        
+        setInterval(() => {
+            if(gameState.winner || !isConnected) return;
+            if(gameState.time > 0) gameState.time--;
+            else checkWinCondition();
+        }, 1000);
+    }
+    
+    function resetGame() {
+        gameState.p1.hp = MAX_HP; gameState.p1.x = 100; gameState.p1.y = GROUND_Y; gameState.p1.state = 'idle';
+        gameState.p2.hp = MAX_HP; gameState.p2.x = 600; gameState.p2.y = GROUND_Y; gameState.p2.state = 'idle';
+        gameState.time = 60;
+        gameState.winner = null;
+        conn.send({ type: 'STATE', state: gameState });
+    }
+
+    function requestRematch() {
+        if(isHost) resetGame();
+        else conn.send({ type: 'REMATCH' });
+        document.getElementById('rematch-btn').classList.add('hidden');
+        document.getElementById('wait-msg').innerText = "";
+    }
+
+    function updatePhysics(p, input, enemy) {
+        if(gameState.winner) return;
+
+        // Movement
+        if (p.state !== 'stun') {
+            if (input.left) { p.vx = -SPEED; p.dir = -1; }
+            else if (input.right) { p.vx = SPEED; p.dir = 1; }
+            else p.vx = 0;
+
+            if (input.jump && p.y === GROUND_Y) p.vy = JUMP_FORCE;
+        }
+
+        // Gravity
+        p.vy += GRAVITY;
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Ground Collision
+        if (p.y > GROUND_Y) { p.y = GROUND_Y; p.vy = 0; }
+        
+        // Wall Collision
+        if (p.x < 0) p.x = 0;
+        if (p.x > CANVAS_W - PLAYER_W) p.x = CANVAS_W - PLAYER_W;
+
+        // Attacks
+        if (p.cooldown > 0) p.cooldown--;
+        
+        if (input.atk && p.cooldown === 0 && p.state !== 'stun') {
+            p.state = 'attack';
+            p.cooldown = ATTACK_COOLDOWN;
+            
+            const dist = Math.abs(p.x - enemy.x);
+            const facingEnemy = (p.x < enemy.x && p.dir === 1) || (p.x > enemy.x && p.dir === -1);
+            
+            if (dist < ATTACK_RANGE && Math.abs(p.y - enemy.y) < 50 && facingEnemy) {
+                if(inputs[enemy === gameState.p1 ? 'p1' : 'p2'].block) {
+                    enemy.hp -= 2; // Chip
+                    enemy.vx = p.dir * 10;
+                } else {
+                    enemy.hp -= 10;
+                    enemy.state = 'stun';
+                    enemy.vy = -5;
+                    enemy.vx = p.dir * 10;
+                    setTimeout(() => enemy.state = 'idle', 300);
+                }
+            }
+        } else if (p.cooldown < ATTACK_COOLDOWN - 10 && p.state === 'attack') {
+            p.state = 'idle';
+        }
+        
+        // Block Visual
+        if(input.block && p.state === 'idle') p.state = 'block';
+        if(!input.block && p.state === 'block') p.state = 'idle';
+    }
+
+    function checkWinCondition() {
+        if (gameState.p1.hp <= 0 && gameState.p2.hp <= 0) gameState.winner = "DRAW";
+        else if (gameState.p1.hp <= 0) gameState.winner = "PLAYER 2 WINS";
+        else if (gameState.p2.hp <= 0) gameState.winner = "PLAYER 1 WINS";
+        else if (gameState.time === 0) {
+            gameState.winner = (gameState.p1.hp > gameState.p2.hp) ? "PLAYER 1 WINS" : "PLAYER 2 WINS";
+            if (gameState.p1.hp === gameState.p2.hp) gameState.winner = "DRAW";
+        }
+    }
+
+    function gameLoop() {
+        if (!isHost) return;
+
+        updatePhysics(gameState.p1, inputs.p1, gameState.p2);
+        updatePhysics(gameState.p2, inputs.p2, gameState.p1);
+        checkWinCondition();
+        
+        if(conn && conn.open) conn.send({ type: 'STATE', state: gameState });
+
+        render();
+        updateHUD();
+        handleWinnerUI();
+        
+        requestAnimationFrame(gameLoop);
+    }
+
+    /* --- RENDERING --- */
+    const cvs = document.getElementById('gameCanvas');
+    const ctx = cvs.getContext('2d');
+
+    function resizeCanvas() {
+        const container = document.getElementById('canvas-container');
+        const scale = Math.min(container.clientWidth / CANVAS_W, container.clientHeight / CANVAS_H);
+        cvs.style.width = (CANVAS_W * scale) + 'px';
+        cvs.style.height = (CANVAS_H * scale) + 'px';
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function render() {
+        ctx.fillStyle = '#111'; // Transparent handled by CSS bg
+        ctx.clearRect(0,0, CANVAS_W, CANVAS_H);
+
+        // Ground
+        ctx.fillStyle = '#444';
+        ctx.fillRect(0, GROUND_Y + PLAYER_H, CANVAS_W, 20);
+
+        drawPlayer(gameState.p1);
+        drawPlayer(gameState.p2);
+    }
+
+    function drawPlayer(p) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        
+        ctx.fillStyle = p.color;
+        if(p.state === 'stun') ctx.fillStyle = '#555';
+        if(p.state === 'block') ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+        
+        ctx.fillRect(0, 0, PLAYER_W, PLAYER_H);
+        if(p.state === 'block') ctx.strokeRect(0,0, PLAYER_W, PLAYER_H);
+
+        // Eyes
+        ctx.fillStyle = 'white';
+        const eyeX = p.dir === 1 ? 30 : 5;
+        ctx.fillRect(eyeX, 20, 15, 15);
+        
+        // Attack
+        if(p.state === 'attack') {
+            ctx.fillStyle = 'yellow';
+            const punchX = p.dir === 1 ? PLAYER_W : -40;
+            ctx.fillRect(punchX, 40, 40, 20);
+        }
+
+        ctx.restore();
+    }
+
+    function updateHUD() {
+        document.getElementById('p1-fill').style.width = Math.max(0, (gameState.p1.hp / MAX_HP) * 100) + '%';
+        document.getElementById('p2-fill').style.width = Math.max(0, (gameState.p2.hp / MAX_HP) * 100) + '%';
+        document.getElementById('timer').innerText = gameState.time;
+    }
+
+    function handleWinnerUI() {
+        if(gameState.winner) {
+            document.getElementById('waiting-overlay').style.display = 'flex';
+            document.getElementById('wait-msg').style.display = 'block';
+            document.getElementById('wait-msg').innerText = gameState.winner;
+            document.getElementById('rematch-btn').classList.remove('hidden');
+        } else {
+             document.getElementById('waiting-overlay').style.display = 'none';
+        }
+    }
+</script>
+</body>
+</html>
