@@ -14,15 +14,17 @@
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+<!-- Audio: Tone.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
 
 <style>
     :root {
-        --bg-color: #222;
+        --bg-color: #111;
         --ui-bg: #fff;
         --p1-color: #2e7d32;
         --p2-color: #c62828;
         --accent: #0b5394;
-        --shadow: 0 4px 20px rgba(0,0,0,0.3);
+        --shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
 
     * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; }
@@ -40,24 +42,27 @@
     /* --- UI LAYERS --- */
     #ui-layer {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: #f4f4f4; z-index: 200;
+        background: linear-gradient(135deg, #222 0%, #111 100%); 
+        z-index: 200;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         padding: 10px;
     }
     
     #btn-offline {
         position: absolute; top: 15px; right: 15px;
-        background: #333; color: white; border: 2px solid #555;
+        background: #444; color: #fff; border: 1px solid #666;
         padding: 8px 12px; border-radius: 8px; font-weight: 700;
         font-size: 0.8rem; cursor: pointer; z-index: 300;
         display: flex; align-items: center; gap: 6px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        transition: all 0.2s;
     }
+    #btn-offline:active { transform: scale(0.95); background: #666; }
 
     .card {
-        background: var(--ui-bg); padding: 1rem; border-radius: 1.5rem;
+        background: var(--ui-bg); padding: 1.5rem; border-radius: 1.5rem;
         text-align: center; width: 100%; max-width: 400px;
-        box-shadow: var(--shadow); border: 2px solid #ccc;
+        box-shadow: var(--shadow); border: none;
         display: flex; flex-direction: column; gap: 15px; align-items: center;
         max-height: 95vh; overflow-y: auto;
     }
@@ -66,33 +71,38 @@
 
     /* Role Buttons */
     .role-btn {
-        width: 100%; padding: 20px; border: none; border-radius: 1rem;
-        font-family: inherit; font-size: 1.5rem; font-weight: 800; color: white;
-        cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        width: 100%; padding: 25px; border: none; border-radius: 1rem;
+        font-family: inherit; font-size: 1.4rem; font-weight: 900; color: white;
+        cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.3);
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+        transition: transform 0.1s, filter 0.1s;
+        text-transform: uppercase;
     }
-    .role-host { background: var(--p1-color); }
-    .role-join { background: var(--p2-color); }
+    .role-btn:active { transform: scale(0.96); filter: brightness(1.1); }
+    .role-host { background: linear-gradient(135deg, #2e7d32, #1b5e20); }
+    .role-join { background: linear-gradient(135deg, #c62828, #b71c1c); }
 
     /* Lock Interface */
     #lock-container {
         display: flex; justify-content: center; gap: 5px; margin: 10px 0; perspective: 500px;
     }
     .lock-roller {
-        width: 35px; height: 50px; background: #fff; border: 2px solid #999;
-        border-radius: 8px; font-size: 1.8rem; font-weight: 800;
+        width: 40px; height: 60px; background: #f0f0f0; border-bottom: 4px solid #ccc;
+        border-radius: 8px; font-size: 2rem; font-weight: 800; color: #333;
         display: flex; align-items: center; justify-content: center;
-        box-shadow: inset 0 0 5px rgba(0,0,0,0.1); cursor: grab;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); cursor: grab;
     }
     .btn-primary {
-        background: var(--accent); color: white; border: none; padding: 12px;
-        border-radius: 10px; font-weight: 700; width: 100%; font-size: 1.1rem;
+        background: var(--accent); color: white; border: none; padding: 15px;
+        border-radius: 12px; font-weight: 800; width: 100%; font-size: 1.1rem;
         cursor: pointer; text-transform: uppercase;
         display: flex; align-items: center; justify-content: center; gap: 8px;
+        box-shadow: 0 4px 10px rgba(11, 83, 148, 0.4);
     }
     .btn-secondary {
-        background: #eee; color: #333; border: 2px solid #ccc; padding: 10px;
-        border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer;
+        background: #eee; color: #333; border: none; padding: 12px;
+        border-radius: 12px; font-weight: 700; width: 100%; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 6px;
     }
 
     /* --- GAME UI --- */
@@ -102,43 +112,46 @@
     }
 
     #hud {
-        height: 60px; background: #222; display: flex; align-items: center; 
-        padding: 0 10px; gap: 10px; border-bottom: 4px solid #111; z-index: 20;
+        height: 70px; background: linear-gradient(to bottom, #222, #111); display: flex; align-items: center; 
+        padding: 0 15px; gap: 15px; border-bottom: 4px solid #000; z-index: 20;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.5);
     }
     .hp-box { flex: 1; display: flex; flex-direction: column; }
-    .hp-label { color: #fff; font-size: 0.7rem; font-weight: 800; margin-bottom: 2px; text-shadow: 1px 1px 0 #000;}
-    .hp-bar-bg { width: 100%; height: 24px; background: #444; border: 2px solid #000; transform: skewX(-15deg); overflow: hidden; }
-    .hp-fill { height: 100%; width: 100%; transition: width 0.1s linear; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.3); }
+    .hp-label { color: #ccc; font-size: 0.8rem; font-weight: 900; margin-bottom: 4px; text-shadow: 1px 1px 0 #000; letter-spacing: 1px;}
+    .hp-bar-bg { width: 100%; height: 20px; background: #333; border: 2px solid #000; transform: skewX(-20deg); overflow: hidden; position: relative;}
+    .hp-fill { height: 100%; width: 100%; transition: width 0.1s ease-out; box-shadow: inset 0 2px 0 rgba(255,255,255,0.3), inset 0 -2px 0 rgba(0,0,0,0.3); }
     
-    #p1-fill { background: var(--p1-color); }
-    #p2-fill { background: var(--p2-color); }
+    #p1-fill { background: linear-gradient(90deg, #4caf50, #2e7d32); }
+    #p2-fill { background: linear-gradient(90deg, #f44336, #c62828); }
     
     #timer { 
-        width: 60px; text-align: center; color: #fbc02d; font-weight: 900; font-size: 2rem; 
-        font-family: monospace; text-shadow: 2px 2px 0 #000;
+        width: 70px; text-align: center; color: #ffeb3b; font-weight: 900; font-size: 2.2rem; 
+        font-family: monospace; text-shadow: 3px 3px 0 #000;
+        background: #000; border-radius: 5px; line-height: 1; padding: 5px 0;
     }
 
     #canvas-container {
         flex: 1; position: relative; background: #1a1a1a; overflow: hidden;
-        /* Retro Grid Background */
+        /* Cyber Grid Background */
         background-image: 
-            linear-gradient(#222 1px, transparent 1px),
-            linear-gradient(90deg, #222 1px, transparent 1px);
-        background-size: 40px 40px;
+            linear-gradient(rgba(0, 255, 255, 0.05) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 255, 0.05) 1px, transparent 1px);
+        background-size: 50px 50px;
+        box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
         display: flex; justify-content: center; align-items: center;
     }
     
     canvas { 
         background: transparent; 
-        box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
-        image-rendering: pixelated; /* CRITICAL FOR RETRO LOOK */
+        filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)); 
+        image-rendering: pixelated; 
     }
 
     #waiting-overlay {
         position: absolute; top:0; left:0; width:100%; height:100%;
         background: rgba(0,0,0,0.85); color: white;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        z-index: 50; text-align: center;
+        z-index: 50; text-align: center; backdrop-filter: blur(5px);
     }
 
     /* CONTROLS OVERLAY (DYNAMIC LIBRARY) */
@@ -146,7 +159,7 @@
         position: absolute; bottom: 20px; left: 0; width: 100%;
         height: 180px; pointer-events: none;
         display: flex; justify-content: space-between; align-items: flex-end;
-        padding: 0 30px;
+        padding: 0 40px;
         z-index: 100;
     }
     #left-zone, #right-zone {
@@ -158,21 +171,21 @@
     .v-btn {
         position: absolute;
         border-radius: 50%;
-        background: rgba(255,255,255,0.1);
-        border: 3px solid rgba(255,255,255,0.3);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 2px 5px rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.05);
+        border: 2px solid rgba(255,255,255,0.2);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
         display: flex; align-items: center; justify-content: center;
         color: white; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.4rem;
-        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-        transition: transform 0.08s, background 0.08s, border-color 0.08s;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        transition: transform 0.05s, background 0.05s, border-color 0.05s;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.8);
     }
-    .v-btn:active, .v-btn.pressed { transform: scale(0.92) translateY(2px); background: rgba(255,255,255,0.25); }
+    .v-btn:active, .v-btn.pressed { transform: scale(0.9); background: rgba(255,255,255,0.2); border-color: white; }
     
-    /* SNES Colors */
-    .v-btn-a { background: rgba(46, 125, 50, 0.4); border-color: #4caf50; }
-    .v-btn-b { background: rgba(198, 40, 40, 0.4); border-color: #e57373; }
-    .v-btn-x { background: rgba(11, 83, 148, 0.4); border-color: #64b5f6; }
+    /* Modern Controller Colors */
+    .v-btn-a { background: linear-gradient(135deg, rgba(76, 175, 80, 0.4), rgba(27, 94, 32, 0.4)); border-color: #66bb6a; }
+    .v-btn-b { background: linear-gradient(135deg, rgba(244, 67, 54, 0.4), rgba(183, 28, 28, 0.4)); border-color: #ef5350; }
+    .v-btn-x { background: linear-gradient(135deg, rgba(33, 150, 243, 0.4), rgba(13, 71, 161, 0.4)); border-color: #42a5f5; }
 
     #reader { width: 100%; max-width: 300px; height: 250px; background: black; margin: 0 auto; border-radius: 10px; overflow: hidden; border: 2px solid var(--accent); }
     #html5-qrcode-anchor-scan-type-change { display: none !important; }
@@ -184,59 +197,60 @@
 
 <!-- UI LAYER -->
 <div id="ui-layer">
-    <button id="btn-offline" onclick="setupOfflineMode()">
-        <i data-lucide="play-circle"></i> OFFLINE TEST
+    <button id="btn-offline" onclick="SoundManager.init(); setupOfflineMode()">
+        <i data-lucide="play-circle"></i> ОФЛАЙН ТЕСТ
     </button>
     
     <!-- MAIN MENU -->
     <div id="menu-main" class="card">
-        <h1 style="font-weight:900; margin:0; line-height:0.9; font-size: 2.5rem; text-transform: uppercase; letter-spacing: -1px;">
+        <h1 style="font-weight:900; margin:0; line-height:0.9; font-size: 2.8rem; text-transform: uppercase; letter-spacing: -2px; color: #333;">
             Pixel<br><span style="color:var(--p2-color)">Brawler</span>
         </h1>
+        <div style="width:100%; height:2px; background:#ddd; margin:10px 0;"></div>
         <div style="flex:1; width:100%; display:flex; flex-direction:column; gap:15px; justify-content:center;">
-            <button class="role-btn role-host" onclick="setupHost()">
-                <i data-lucide="swords" width="48" height="48"></i> CREATE GAME
+            <button class="role-btn role-host" onclick="SoundManager.init(); setupHost()">
+                <i data-lucide="swords" width="48" height="48"></i> СТВОРИТИ ГРУ
             </button>
-            <button class="role-btn role-join" onclick="setupJoin()">
-                <i data-lucide="gamepad-2" width="48" height="48"></i> JOIN GAME
+            <button class="role-btn role-join" onclick="SoundManager.init(); setupJoin()">
+                <i data-lucide="gamepad-2" width="48" height="48"></i> ПРИЄДНАТИСЯ
             </button>
         </div>
     </div>
 
     <!-- HOST MENU -->
     <div id="menu-host" class="card hidden">
-        <h3 style="margin:5px 0;">HOST LOBBY</h3>
+        <h3 style="margin:5px 0;">КІМНАТА ВЕДУЧОГО</h3>
         <div id="qr-container"></div>
         <div style="font-size: 1.8rem; font-weight:900; letter-spacing:3px; color:var(--accent); font-family: monospace;">
             <span id="host-id-display">...</span>
         </div>
-        <div class="icon-btn-group" style="display:flex; gap:10px;">
-            <button class="btn-secondary" onclick="copyId()"><i data-lucide="copy"></i> COPY</button>
-            <button class="btn-secondary" onclick="shareGame()"><i data-lucide="share-2"></i> SHARE</button>
+        <div class="icon-btn-group" style="display:flex; gap:10px; width: 100%;">
+            <button class="btn-secondary" onclick="copyId()"><i data-lucide="copy"></i> КОПІЯ</button>
+            <button class="btn-secondary" onclick="shareGame()"><i data-lucide="share-2"></i> ПОДІЛИТИСЬ</button>
         </div>
-        <button class="btn-secondary" onclick="location.reload()" style="margin-top:auto">CANCEL</button>
+        <button class="btn-secondary" onclick="location.reload()" style="margin-top:auto; background: #ffebee; color: #c62828;">ВІДМІНА</button>
     </div>
 
     <!-- JOIN MENU -->
     <div id="menu-join" class="card hidden">
-        <h3 style="margin:5px 0;">JOIN LOBBY</h3>
+        <h3 style="margin:5px 0;">КІМНАТА ГРАВЦЯ</h3>
         <!-- Rotary Lock -->
         <div id="lock-container">
-            <div class="lock-group" id="input-group-1"></div> <!-- Generated via JS -->
+            <div class="lock-group" id="input-group-1"></div> 
         </div>
         
-        <button class="btn-secondary" style="margin-bottom: 10px;" onclick="pasteId()"><i data-lucide="clipboard"></i> PASTE ID</button>
-        <button class="btn-primary" onclick="joinGameManually()">CONNECT</button>
+        <button class="btn-secondary" style="margin-bottom: 10px;" onclick="pasteId()"><i data-lucide="clipboard"></i> ВСТАВИТИ ID</button>
+        <button class="btn-primary" onclick="joinGameManually()">ПІДКЛЮЧИТИСЯ</button>
         
         <div style="width:100%; border-top:1px solid #ddd; margin:10px 0; padding-top:10px;">
             <div id="reader"></div>
         </div>
-        <button class="btn-secondary" onclick="location.reload()">BACK</button>
+        <button class="btn-secondary" onclick="location.reload()">НАЗАД</button>
     </div>
 
     <div id="menu-loading" class="card hidden">
         <i data-lucide="loader-2" class="spin" style="width: 48px; height: 48px; color: var(--accent);"></i>
-        <h3 id="loading-text">Connecting...</h3>
+        <h3 id="loading-text">З'єднання...</h3>
     </div>
 </div>
 
@@ -244,12 +258,12 @@
 <div id="game-layer" class="hidden">
     <div id="hud">
         <div class="hp-box">
-            <span class="hp-label">P1 (GREEN)</span>
+            <span class="hp-label">Г1 (ЗЕЛЕНИЙ)</span>
             <div class="hp-bar-bg"><div id="p1-fill" class="hp-fill"></div></div>
         </div>
         <div id="timer">60</div>
         <div class="hp-box" style="align-items: flex-end;">
-            <span class="hp-label">P2 (RED)</span>
+            <span class="hp-label">Г2 (ЧЕРВОНИЙ)</span>
             <div class="hp-bar-bg"><div id="p2-fill" class="hp-fill"></div></div>
         </div>
     </div>
@@ -257,8 +271,8 @@
     <div id="canvas-container">
         <canvas id="gameCanvas" width="800" height="450"></canvas>
         <div id="waiting-overlay">
-            <h2 id="wait-msg">WAITING FOR OPPONENT...</h2>
-            <button id="rematch-btn" class="btn-primary hidden" style="width:200px; margin-top:20px;" onclick="requestRematch()">REMATCH</button>
+            <h2 id="wait-msg">ОЧІКУВАННЯ СУПЕРНИКА...</h2>
+            <button id="rematch-btn" class="btn-primary hidden" style="width:200px; margin-top:20px;" onclick="requestRematch()">РЕВАНШ</button>
         </div>
     </div>
 
@@ -269,6 +283,136 @@
 </div>
 
 <script>
+    /* --- ADVANCED AUDIO MANAGER (TONE.JS) --- */
+    const SoundManager = {
+        isInit: false,
+        bgm: null,
+        kick: null,
+        snare: null,
+        bass: null,
+        voiceSynth: null,
+        fxReverb: null,
+        fxDistortion: null,
+
+        async init() {
+            if (this.isInit) return;
+            await Tone.start();
+            Tone.Context.lookAhead = 0.05;
+
+            // --- 1. EFFECTS CHAIN ---
+            this.fxReverb = new Tone.Reverb({ decay: 1.5, preDelay: 0.01 }).toDestination();
+            await this.fxReverb.generate();
+            this.fxDistortion = new Tone.Distortion(0.4).toDestination();
+            
+            // --- 2. VOCAL SYNTH (Procedural "Voices") ---
+            // Formant filter to simulate vowel sounds like "Hah!" and "Oof!"
+            this.voiceSynth = new Tone.MonoSynth({
+                oscillator: { type: "sawtooth" },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.0, release: 0.1 },
+                filter: { type: "lowpass", frequency: 2000, Q: 1 },
+                filterEnvelope: { attack: 0.001, decay: 0.1, baseFrequency: 200, octaves: 2, exponent: 2 }
+            }).connect(this.fxReverb);
+            this.voiceSynth.volume.value = -5;
+
+            // --- 3. SFX SYNTHS (Cool Fighting Sounds) ---
+            
+            // Impact/Punch (Sub + Noise)
+            this.punchSynth = new Tone.MembraneSynth({
+                pitchDecay: 0.02, octaves: 4, oscillator: { type: "sine" },
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0, release: 0.1 }
+            }).connect(this.fxDistortion);
+
+            // Whoosh/Jump (Noise Sweep)
+            this.whooshSynth = new Tone.NoiseSynth({
+                noise: { type: 'pink' },
+                envelope: { attack: 0.01, decay: 0.3, sustain: 0 }
+            }).toDestination();
+            this.whooshSynth.volume.value = -10;
+
+            // Block/Metal
+            this.metalSynth = new Tone.MetalSynth({
+                harmonicity: 3.1, modulationIndex: 16, resonance: 4000,
+                envelope: { attack: 0.001, decay: 0.1, release: 0.01 }, volume: -15
+            }).toDestination();
+
+            // --- 4. ACTION MUSIC (Cyberpunk Style) ---
+            const drumVol = new Tone.Volume(-8).toDestination();
+            
+            this.kick = new Tone.MembraneSynth().connect(drumVol);
+            this.snare = new Tone.NoiseSynth({ 
+                noise: { type: 'white' }, 
+                envelope: { attack: 0.001, decay: 0.2, sustain: 0 } 
+            }).connect(this.fxReverb);
+
+            this.bass = new Tone.FMSynth({
+                harmonicity: 1, modulationIndex: 3.5,
+                oscillator: { type: "sawtooth" },
+                envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.2 },
+                modulation: { type: "square" },
+                modulationEnvelope: { attack: 0.1, decay: 0.2, sustain: 0.3, release: 0.01 }
+            }).connect(this.fxDistortion);
+            this.bass.volume.value = -12;
+
+            // Sequence: Driving 130BPM Loop
+            Tone.Transport.bpm.value = 130;
+            
+            const bassLoop = new Tone.Sequence((time, note) => {
+                this.bass.triggerAttackRelease(note, "8n", time);
+            }, ["C2", null, "C2", "C2", "F2", null, "G2", "Bb1"], "8n");
+
+            const drumLoop = new Tone.Loop(time => {
+                this.kick.triggerAttackRelease("C1", "8n", time);
+                this.snare.triggerAttackRelease("8n", time + Tone.Time("4n"));
+                this.kick.triggerAttackRelease("C1", "8n", time + Tone.Time("2n"));
+                this.kick.triggerAttackRelease("C1", "8n", time + Tone.Time("2n") + Tone.Time("8n"));
+                this.snare.triggerAttackRelease("8n", time + Tone.Time("2n") + Tone.Time("4n"));
+            }, "1n");
+
+            this.bgm = { start: () => { bassLoop.start(0); drumLoop.start(0); Tone.Transport.start(); }, 
+                         stop: () => { Tone.Transport.stop(); } };
+
+            this.bgm.start();
+            this.isInit = true;
+        },
+
+        play(type) {
+            if (!this.isInit) return;
+            switch(type) {
+                case 'jump': 
+                    // Filter sweep for "Whoosh"
+                    const filter = new Tone.Filter(800, "bandpass").toDestination();
+                    const noise = new Tone.Noise("white").connect(filter);
+                    noise.start();
+                    filter.frequency.rampTo(2000, 0.2);
+                    noise.stop("+0.2");
+                    break;
+                case 'land': 
+                    this.punchSynth.triggerAttackRelease("A1", "32n"); 
+                    break;
+                case 'attack': 
+                    // Shout "Hah!" + Swing
+                    this.voiceSynth.triggerAttackRelease("E4", "16n"); 
+                    this.whooshSynth.triggerAttackRelease("32n");
+                    break;
+                case 'hit': 
+                    // Shout "Ugh!" + Heavy Impact
+                    this.voiceSynth.triggerAttackRelease("G2", "8n"); 
+                    this.punchSynth.triggerAttackRelease("C2", "16n");
+                    break;
+                case 'block': 
+                    this.metalSynth.triggerAttackRelease("32n"); 
+                    break;
+                case 'win': 
+                    this.bgm.stop();
+                    const now = Tone.now();
+                    const winSynth = new Tone.PolySynth(Tone.Synth).toDestination();
+                    winSynth.triggerAttackRelease(["C4", "E4", "G4"], "8n", now);
+                    winSynth.triggerAttackRelease(["C5", "E5", "G5"], "2n", now + 0.2);
+                    break;
+            }
+        }
+    };
+
     /* --- CONFIGURATION --- */
     const APP_PREFIX = "px_brawl_";
     const lockDigits = [0,0,0,0,0,0];
@@ -277,7 +421,7 @@
     // Game Constants
     const CANVAS_W = 800, CANVAS_H = 450;
     const GROUND_Y = 380;
-    const PLAYER_W = 60, PLAYER_H = 100; // Hitbox
+    const PLAYER_W = 60, PLAYER_H = 100; 
     const GRAVITY = 0.8;
     const SPEED = 5;
     const CRAWL_SPEED = 2.5;
@@ -306,79 +450,64 @@
 
     lucide.createIcons();
 
-    /* --- SPRITE / ASSET LIBRARY (Procedural Generation) --- */
-    // We create a robust Asset Manager to generate pixel art sheets on the fly
-    // This avoids external dependencies/404s while keeping code self-contained.
-    
+    /* --- ASSET GENERATOR (CANVAS) --- */
     class AssetGenerator {
         static createFighterSheet(color) {
             const cvs = document.createElement('canvas');
-            const size = 64; // Frame size
-            const cols = 5; // Frames per row
-            const rows = 5; // Rows (actions)
-            cvs.width = size * cols;
-            cvs.height = size * rows;
+            const size = 64; 
+            const cols = 5; const rows = 5; 
+            cvs.width = size * cols; cvs.height = size * rows;
             const ctx = cvs.getContext('2d');
             
-            // Helper to draw a pixel character
-            const drawFrame = (row, col, pose) => {
-                const x = col * size;
-                const y = row * size;
-                const cx = x + size/2;
-                const cy = y + size; // Bottom aligned
-                
+            const drawFrame = (row, col) => {
+                const x = col * size; const y = row * size;
+                const cx = x + size/2; const cy = y + size; 
                 ctx.save();
                 
-                // Body Color
                 ctx.fillStyle = color; 
-                
-                // --- IDLE (Row 0) ---
+                // IDLE
                 if (row === 0) {
                     const bob = (col % 2 === 0) ? 0 : 2;
-                    ctx.fillRect(cx - 10, cy - 40 + bob, 20, 30); // Body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 54 + bob, 16, 14); // Head
-                    ctx.fillStyle = '#333'; ctx.fillRect(cx + 2, cy - 50 + bob, 4, 2); // Eye
+                    ctx.fillRect(cx - 10, cy - 40 + bob, 20, 30);
+                    ctx.fillStyle = '#ffccaa'; ctx.fillRect(cx - 8, cy - 54 + bob, 16, 14); // Skin
+                    ctx.fillStyle = '#111'; ctx.fillRect(cx + 2, cy - 50 + bob, 4, 2); // Glasses
+                    ctx.fillStyle = '#333'; ctx.fillRect(cx-9, cy-56+bob, 18, 5); // Hair
                 }
-                // --- RUN (Row 1) ---
+                // RUN
                 else if (row === 1) {
                     const lean = 5;
-                    ctx.fillRect(cx - 10 + lean, cy - 40, 20, 28); // Body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8 + lean, cy - 54, 16, 14); // Head
-                    // Legs logic
-                    ctx.fillStyle = '#111';
+                    ctx.fillRect(cx - 10 + lean, cy - 40, 20, 28);
+                    ctx.fillStyle = '#ffccaa'; ctx.fillRect(cx - 8 + lean, cy - 54, 16, 14);
+                    ctx.fillStyle = '#333'; ctx.fillRect(cx-9+lean, cy-56, 18, 5); 
+                    ctx.fillStyle = '#222'; // Pants
                     if (col % 4 === 0) { ctx.fillRect(cx-12, cy-12, 8, 12); ctx.fillRect(cx+4, cy-12, 8, 12); } 
                     else if (col % 4 === 1) { ctx.fillRect(cx-8, cy-15, 8, 10); ctx.fillRect(cx+8, cy-8, 8, 8); }
                     else { ctx.fillRect(cx+8, cy-12, 8, 12); ctx.fillRect(cx-12, cy-12, 8, 12); }
                 }
-                // --- JUMP (Row 2) ---
+                // JUMP
                 else if (row === 2) {
-                    ctx.fillRect(cx - 10, cy - 50, 20, 25); // High body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 64, 16, 14); // Head
-                    ctx.fillStyle = '#111'; ctx.fillRect(cx - 12, cy - 25, 10, 10); ctx.fillRect(cx + 2, cy - 20, 10, 8); // Tucked legs
+                    ctx.fillRect(cx - 10, cy - 50, 20, 25); 
+                    ctx.fillStyle = '#ffccaa'; ctx.fillRect(cx - 8, cy - 64, 16, 14); 
+                    ctx.fillStyle = '#222'; ctx.fillRect(cx - 12, cy - 25, 10, 10); ctx.fillRect(cx + 2, cy - 20, 10, 8);
                 }
-                // --- DUCK/CRAWL (Row 3) ---
+                // DUCK
                 else if (row === 3) {
-                    ctx.fillRect(cx - 12, cy - 25, 24, 25); // Short body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 39, 16, 14); // Head
+                    ctx.fillRect(cx - 12, cy - 25, 24, 25);
+                    ctx.fillStyle = '#ffccaa'; ctx.fillRect(cx - 8, cy - 39, 16, 14);
+                    ctx.fillStyle = '#333'; ctx.fillRect(cx-9, cy-41, 18, 5); 
                 }
-                // --- ATTACK (Row 4) ---
+                // ATTACK
                 else if (row === 4) {
                     ctx.fillRect(cx - 10, cy - 40, 20, 30); 
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 54, 16, 14);
-                    // Fist
-                    ctx.fillStyle = '#f00'; // Glove
+                    ctx.fillStyle = '#ffccaa'; ctx.fillRect(cx - 8, cy - 54, 16, 14);
+                    ctx.fillStyle = '#333'; ctx.fillRect(cx-9, cy-56, 18, 5); 
+                    ctx.fillStyle = '#aa0000'; // Glove
                     const ext = (col > 0 && col < 3) ? 25 : 5;
-                    ctx.fillRect(cx + 5, cy - 35, ext, 10); 
+                    ctx.fillRect(cx + 5, cy - 35, ext, 12); 
                 }
-                
                 ctx.restore();
             };
-
-            for(let r=0; r<rows; r++) {
-                for(let c=0; c<cols; c++) {
-                    drawFrame(r, c);
-                }
-            }
+            for(let r=0; r<rows; r++) for(let c=0; c<cols; c++) drawFrame(r, c);
             return cvs;
         }
     }
@@ -392,9 +521,9 @@
                 run:    { row: 1, frames: 4, speed: 5 },
                 jump:   { row: 2, frames: 1, speed: 1 },
                 duck:   { row: 3, frames: 1, speed: 1 },
-                crawl:  { row: 3, frames: 2, speed: 10 }, // Re-use duck row, simulated frames
+                crawl:  { row: 3, frames: 2, speed: 10 },
                 attack: { row: 4, frames: 4, speed: 3 },
-                stun:   { row: 0, frames: 1, speed: 1 } // Frame 0 idle static
+                stun:   { row: 0, frames: 1, speed: 1 }
             };
             this.currentAnim = 'idle';
             this.frameIndex = 0;
@@ -402,7 +531,6 @@
         }
 
         draw(ctx, x, y, w, h, dir, state, vx, ducking) {
-            // Determine Animation Key
             let key = 'idle';
             if (state === 'stun') key = 'stun';
             else if (state === 'attack') key = 'attack';
@@ -410,7 +538,6 @@
             else if (ducking) key = 'duck';
             else if (y < GROUND_Y) key = 'jump';
 
-            // Animation Logic
             if (key !== this.currentAnim) {
                 this.currentAnim = key;
                 this.frameIndex = 0;
@@ -424,28 +551,23 @@
                 this.frameIndex = (this.frameIndex + 1) % anim.frames;
             }
 
-            // Draw
             const sx = this.frameIndex * this.frameSize;
             const sy = anim.row * this.frameSize;
             
             ctx.save();
-            ctx.translate(x + w/2, y + h); // Pivot bottom center
-            ctx.scale(dir, 1); // Flip horizontal
+            ctx.translate(x + w/2, y + h); 
+            ctx.scale(dir, 1); 
             
             // Shadow
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.beginPath(); ellipse(ctx, 0, 0, 20, 5); ctx.fill();
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.beginPath(); ellipse(ctx, 0, 0, 24, 6); ctx.fill();
 
-            // Sprite
-            // Draw slightly larger than hitbox for visual flair
-            const drawSize = 140; 
-            ctx.drawImage(this.sheet, sx, sy, this.frameSize, this.frameSize, -drawSize/2, -drawSize, drawSize, drawSize);
-            
+            const drawSize = 150; 
+            ctx.drawImage(this.sheet, sx, sy, this.frameSize, this.frameSize, -drawSize/2, -drawSize + 10, drawSize, drawSize);
             ctx.restore();
         }
     }
     
-    // Canvas Helper
     function ellipse(ctx, cx, cy, rx, ry){
         ctx.save(); ctx.beginPath(); ctx.translate(cx-rx, cy-ry);
         ctx.scale(rx, ry); ctx.arc(1, 1, 1, 0, 2 * Math.PI, false);
@@ -466,7 +588,6 @@
         }
     };
 
-    /* --- UI FUNCTIONS --- */
     function show(id) { document.getElementById(id).classList.remove('hidden'); }
     function hide(id) { document.getElementById(id).classList.add('hidden'); }
     
@@ -478,7 +599,6 @@
             d.className = 'lock-roller';
             d.id = 'd'+i;
             d.innerText = '0';
-            // Simple drag logic
             let startY = 0;
             d.addEventListener('touchstart', e => startY = e.touches[0].clientY);
             d.addEventListener('touchmove', e => {
@@ -534,19 +654,17 @@
     }
     
     function setupOfflineMode() {
-        isOffline = true;
-        isHost = true;
+        isOffline = true; isHost = true;
         hide('ui-layer'); show('game-layer');
         document.getElementById('wait-msg').style.display = 'none';
-        initControls();
-        resizeCanvas();
-        startGame();
+        initControls(); resizeCanvas(); startGame();
     }
 
     function joinGameManually() { handleCodeInput(getCode()); }
 
     function handleCodeInput(code) {
-        if(!code || code.length < 6) return alert("Invalid ID");
+        if(!code || code.length < 6) return alert("Невірний ID");
+        SoundManager.init();
         hide('menu-join'); show('menu-loading');
         connectToHost(code);
     }
@@ -555,7 +673,7 @@
         peer = new Peer();
         peer.on('open', () => {
             conn = peer.connect(APP_PREFIX + id, { reliable: true });
-            setTimeout(() => { if(!isConnected) { alert("Host not found"); location.reload(); } }, 5000);
+            setTimeout(() => { if(!isConnected) { alert("Ведучого не знайдено"); location.reload(); } }, 5000);
             setupConnection();
         });
     }
@@ -569,7 +687,7 @@
     async function copyId() {
         const url = window.location.href.split('?')[0] + '?host=' + myId;
         await navigator.clipboard.writeText(url);
-        alert("Copied!");
+        alert("Скопійовано!");
     }
     async function pasteId() {
         try {
@@ -586,8 +704,7 @@
         conn.on('open', () => {
             isConnected = true;
             hide('ui-layer'); show('game-layer');
-            initControls();
-            resizeCanvas();
+            initControls(); resizeCanvas();
             if(isHost) startGame();
             else document.getElementById('wait-msg').style.display = 'none';
         });
@@ -596,20 +713,14 @@
                 if(data.type === 'INPUT') inputs.p2 = data.state;
                 if(data.type === 'REMATCH') resetGame();
             } else {
-                if(data.type === 'STATE') {
-                    gameState = data.state;
-                    // Sync P2 input predictions
-                }
+                if(data.type === 'STATE') gameState = data.state;
             }
         });
         conn.on('close', () => location.reload());
     }
 
     /* --- GAME ENGINE --- */
-    
-    // CONTROL LIBRARY INTEGRATION
     function initControls() {
-        // 1. NippleJS Stick
         const stick = nipplejs.create({
             zone: document.getElementById('left-zone'),
             mode: 'static', position: { left: '50%', top: '50%' }, color: 'white', size: 100
@@ -617,25 +728,19 @@
         
         stick.on('move', (e, data) => {
             const angle = data.angle.degree;
-            const force = data.force;
-            if(force > 0.1) {
-                // Mapping Angles to D-Pad Logic
+            if(data.force > 0.1) {
                 const isUp = angle >= 45 && angle < 135;
                 const isDown = angle >= 225 && angle < 315;
                 const isLeft = angle >= 135 && angle < 225;
                 const isRight = angle < 45 || angle >= 315;
-                
-                setInput('right', isRight);
-                setInput('left', isLeft);
-                setInput('up', isUp); // Stick Jump
-                setInput('down', isDown); // Stick Crawl
+                setInput('right', isRight); setInput('left', isLeft);
+                setInput('up', isUp); setInput('down', isDown);
             }
         });
         stick.on('end', () => {
             setInput('right', false); setInput('left', false); setInput('up', false); setInput('down', false);
         });
 
-        // 2. Virtual Buttons
         const btnZone = document.getElementById('right-zone');
         btnZone.innerHTML = '';
         const makeBtn = (txt, cls, x, y, act) => {
@@ -648,8 +753,6 @@
             b.addEventListener('mousedown', press(true)); b.addEventListener('mouseup', press(false));
             btnZone.appendChild(b);
         };
-        
-        // Layout: A=Jump, B=Atk, X=Block
         makeBtn('A', 'v-btn-a', 50, 90, 'jump');
         makeBtn('B', 'v-btn-b', 100, 40, 'atk');
         makeBtn('X', 'v-btn-x', 0, 40, 'block');
@@ -663,7 +766,6 @@
         }
     }
 
-    // Keyboard
     window.onkeydown = e => {
         const m = {ArrowLeft:'left', ArrowRight:'right', ArrowUp:'jump', ArrowDown:'down', z:'atk', x:'block'};
         if(m[e.key]) setInput(m[e.key], true);
@@ -685,6 +787,7 @@
             p1: { x: 100, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: 1, state: 'idle', ducking: false },
             p2: { x: 600, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: -1, state: 'idle', ducking: false }
         });
+        SoundManager.bgm.start();
         if(!isOffline) conn.send({type:'STATE', state:gameState});
     }
 
@@ -697,7 +800,6 @@
 
     function loop() {
         if(isHost && !gameState.winner) {
-            // Tick Timer
             if(gameState.frameCount++ % 60 === 0 && gameState.time > 0) gameState.time--;
             if(gameState.time <= 0) checkWin();
             
@@ -706,9 +808,7 @@
             
             if(!isOffline && conn && conn.open) conn.send({type:'STATE', state:gameState});
         }
-        
-        render();
-        updateHUD();
+        render(); updateHUD();
         
         if(gameState.winner && document.getElementById('waiting-overlay').style.display === 'none') {
             document.getElementById('waiting-overlay').style.display = 'flex';
@@ -720,41 +820,43 @@
 
     function updateP(p, i, e) {
         if(p.state === 'stun') {
-            if(Math.random() > 0.9) p.state = 'idle'; // Simple stun recovery
+            if(Math.random() > 0.9) p.state = 'idle';
             return;
         }
 
-        // Logic
         const isCrawl = i.down && p.y === GROUND_Y;
         const speed = isCrawl ? CRAWL_SPEED : SPEED;
         p.ducking = isCrawl;
 
-        // Move
         if(i.left) { p.vx = -speed; p.dir = -1; }
         else if(i.right) { p.vx = speed; p.dir = 1; }
         else p.vx = 0;
 
-        // Jump (Button or Stick Up)
-        if((i.jump || i.up) && p.y === GROUND_Y && !isCrawl) p.vy = JUMP_FORCE;
+        if((i.jump || i.up) && p.y === GROUND_Y && !isCrawl) {
+            p.vy = JUMP_FORCE;
+            SoundManager.play('jump');
+        }
 
-        // Physics
-        p.vy += GRAVITY;
-        p.x += p.vx;
-        p.y += p.vy;
+        p.vy += GRAVITY; p.x += p.vx; p.y += p.vy;
         
-        if(p.y > GROUND_Y) { p.y = GROUND_Y; p.vy = 0; }
+        if(p.y > GROUND_Y) { 
+            if(p.vy > 2) SoundManager.play('land');
+            p.y = GROUND_Y; p.vy = 0; 
+        }
         if(p.x < 0) p.x = 0; if(p.x > CANVAS_W - PLAYER_W) p.x = CANVAS_W - PLAYER_W;
 
-        // Combat
         if(p.cooldown > 0) p.cooldown--;
         if(i.atk && p.cooldown === 0 && !isCrawl) {
             p.state = 'attack'; p.cooldown = ATTACK_COOLDOWN;
-            // Hitbox
+            SoundManager.play('attack');
+            
             if(Math.abs(p.x - e.x) < 90 && Math.abs(p.y - e.y) < 50 && ((p.x<e.x && p.dir===1)||(p.x>e.x && p.dir===-1))) {
                 if(inputs[e===gameState.p1?'p1':'p2'].block) {
                      e.hp -= 2; e.vx = p.dir*5;
+                     SoundManager.play('block');
                 } else {
                      e.hp -= 8; e.state = 'stun'; e.vy = -4; e.vx = p.dir*8;
+                     SoundManager.play('hit');
                 }
             }
         } else if(p.cooldown < ATTACK_COOLDOWN-10 && p.state === 'attack') p.state = 'idle';
@@ -766,10 +868,11 @@
     }
 
     function checkWin() {
-        if(gameState.p1.hp <= 0 && gameState.p2.hp <= 0) gameState.winner = "DRAW";
-        else if(gameState.p1.hp <= 0) gameState.winner = "P2 WINS";
-        else if(gameState.p2.hp <= 0) gameState.winner = "P1 WINS";
-        else if(gameState.time === 0) gameState.winner = (gameState.p1.hp > gameState.p2.hp) ? "P1 WINS" : (gameState.p2.hp > gameState.p1.hp ? "P2 WINS" : "DRAW");
+        SoundManager.play('win');
+        if(gameState.p1.hp <= 0 && gameState.p2.hp <= 0) gameState.winner = "НІЧИЯ";
+        else if(gameState.p1.hp <= 0) gameState.winner = "ПЕРЕМІГ ГРАВЕЦЬ 2";
+        else if(gameState.p2.hp <= 0) gameState.winner = "ПЕРЕМІГ ГРАВЕЦЬ 1";
+        else if(gameState.time === 0) gameState.winner = (gameState.p1.hp > gameState.p2.hp) ? "ПЕРЕМІГ ГРАВЕЦЬ 1" : "ПЕРЕМІГ ГРАВЕЦЬ 2";
     }
 
     const cvs = document.getElementById('gameCanvas');
@@ -785,14 +888,11 @@
     function render() {
         ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
         
-        // Floor
         ctx.fillStyle = '#1a1a1a';
         ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
         ctx.fillStyle = '#333';
         ctx.fillRect(0, GROUND_Y, CANVAS_W, 10);
 
-        // Players
-        // We pass ducking state to animator for sprite selection
         p1Sprite.draw(ctx, gameState.p1.x, gameState.p1.y, PLAYER_W, PLAYER_H, gameState.p1.dir, gameState.p1.state, gameState.p1.vx, gameState.p1.ducking);
         p2Sprite.draw(ctx, gameState.p2.x, gameState.p2.y, PLAYER_W, PLAYER_H, gameState.p2.dir, gameState.p2.state, gameState.p2.vx, gameState.p2.ducking);
     }
