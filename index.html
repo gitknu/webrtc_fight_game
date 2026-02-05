@@ -13,6 +13,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<!-- Nipple.js for Virtual Joystick -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 
 <style>
     /* --- THEME FROM PRESENTATION APP (CONNECTION UI) --- */
@@ -22,7 +24,6 @@
         --color-attention-high: #b80000; /* Red for Join/P2 */
         --color-attention-med: #0b5394;  /* Blue for Host/P1 */
         --color-success: #2e7d32;
-        --color-error: #c62828;
         --color-text: #000000;
         --color-border: #cccccc;
         --shadow: 0 4px 20px rgba(0,0,0,0.15);
@@ -32,7 +33,7 @@
         --p2-color: #c62828;
     }
 
-    * { box-sizing: border-box; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; }
+    * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; }
 
     body {
         margin: 0; padding: 0;
@@ -46,7 +47,7 @@
         display: flex; flex-direction: column; 
     }
 
-    /* --- UI LAYERS (Connection Screens - Imported from Source B) --- */
+    /* --- UI LAYERS --- */
     #ui-layer {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
         background: rgba(244, 244, 244, 1); z-index: 200;
@@ -54,6 +55,17 @@
         padding: 5px;
         overflow-y: auto;
     }
+
+    /* Offline Button */
+    #btn-offline {
+        position: absolute; top: 15px; right: 15px;
+        background: #333; color: white; border: 2px solid #555;
+        padding: 8px 12px; border-radius: 8px; font-weight: 700;
+        font-size: 0.8rem; cursor: pointer; z-index: 300;
+        display: flex; align-items: center; gap: 6px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    }
+    #btn-offline:active { transform: translateY(2px); }
     
     .card {
         background: var(--color-card); 
@@ -200,7 +212,7 @@
     }
     .id-label { font-size: 0.7rem; text-transform: uppercase; color: #666; font-weight: 700; }
 
-    /* --- GAME UI (FROM SOURCE A) --- */
+    /* --- GAME UI --- */
     #game-layer {
         display: flex; flex-direction: column; height: 100%; width: 100%;
         position: relative;
@@ -238,32 +250,37 @@
         z-index: 50; text-align: center;
     }
 
-    #controls {
-        height: 180px; background: #222; border-top: 2px solid #444;
-        display: flex; padding: 10px; gap: 20px; justify-content: space-between;
-        touch-action: none;
+    /* CONTROLS OVERLAY - REPLACED WITH LIBRARY/DYNAMIC UI */
+    #controls-layer {
+        position: absolute; bottom: 10px; left: 0; width: 100%;
+        height: 160px; pointer-events: none;
+        display: flex; justify-content: space-between; align-items: flex-end;
+        padding: 0 20px;
+        z-index: 100;
     }
-
-    .d-pad { display: flex; gap: 10px; align-items: center; }
-    .action-pad { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-
-    .game-btn {
-        background: #444; border: 2px solid #666; color: white;
-        border-radius: 12px; font-weight: 800; font-size: 1.2rem;
+    #left-zone, #right-zone {
+        width: 150px; height: 150px; pointer-events: auto;
+        position: relative;
+    }
+    
+    /* Dynamic Button Styles (Simulating a UI library) */
+    .v-btn {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.15);
+        border: 2px solid rgba(255,255,255,0.4);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         display: flex; align-items: center; justify-content: center;
-        touch-action: none; cursor: pointer;
-        box-shadow: 0 4px 0 #000;
-        transition: transform 0.05s, box-shadow 0.05s;
+        color: white; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem;
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        transition: transform 0.1s, background 0.1s;
     }
-    .game-btn:active, .game-btn.pressed {
-        transform: translateY(4px); box-shadow: none; background: #555;
-    }
-    
-    #btn-left, #btn-right { width: 70px; height: 70px; }
-    #btn-atk { background: #b71c1c; width: 80px; height: 80px; grid-row: span 2; font-size: 0.9rem; }
-    #btn-jump { background: #f57f17; width: 70px; height: 60px; font-size: 0.8rem; }
-    #btn-block { background: #0d47a1; width: 70px; height: 60px; font-size: 0.8rem; }
-    
+    .v-btn:active, .v-btn.pressed { transform: scale(0.9); background: rgba(255,255,255,0.3); }
+    /* Specific Colors mimicking classical controllers */
+    .v-btn-a { background: rgba(46, 125, 50, 0.4); border-color: #4caf50; }
+    .v-btn-b { background: rgba(198, 40, 40, 0.4); border-color: #e57373; }
+    .v-btn-x { background: rgba(11, 83, 148, 0.4); border-color: #64b5f6; }
+
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -273,10 +290,13 @@
 
 <!-- 1. UI LAYER (From Source B - The Presentation App Logic) -->
 <div id="ui-layer">
+    <!-- OFFLINE BUTTON (NEW) -->
+    <button id="btn-offline" onclick="setupOfflineMode()">
+        <i data-lucide="play-circle"></i> OFFLINE TEST
+    </button>
     
     <!-- MAIN MENU -->
     <div id="role-menu">
-        <!-- Logo Text -->
         <h1 style="text-align:center; margin:0; line-height:0.9; font-weight:900; font-size:3rem; color:#333;">PIXEL<br><span style="color:var(--p2-color)">BRAWLER</span></h1>
         
         <button class="role-btn role-host" onclick="setupHostUI()">
@@ -446,22 +466,15 @@
         </div>
     </div>
 
-    <!-- CONTROLS -->
-    <div id="controls">
-        <div class="d-pad">
-            <div class="game-btn" id="btn-left" data-key="left"><i data-lucide="arrow-left"></i></div>
-            <div class="game-btn" id="btn-right" data-key="right"><i data-lucide="arrow-right"></i></div>
-        </div>
-        <div class="action-pad">
-            <div class="game-btn" id="btn-jump" data-key="jump">JUMP</div>
-            <div class="game-btn" id="btn-block" data-key="block">BLK</div>
-            <div class="game-btn" id="btn-atk" data-key="atk">ATK</div>
-        </div>
+    <!-- CONTROLS OVERLAY (DYNAMIC LIBRARY) -->
+    <div id="controls-layer">
+        <div id="left-zone"></div>
+        <div id="right-zone"></div>
     </div>
 </div>
 
 <script>
-    /* --- PART 1: UI & CONNECTION LOGIC (Imported from Source B) --- */
+    /* --- PART 1: UI & CONNECTION LOGIC --- */
     const APP_PREFIX = "px_brawl_";
     const lockDigits = [0,0,0,0,0,0,0,0,0];
     let html5QrcodeScanner = null;
@@ -469,6 +482,7 @@
     let myIdRaw = null;
     let isHost = false;
     let isConnected = false;
+    let isOffline = false;
 
     lucide.createIcons();
 
@@ -565,6 +579,19 @@
                 updateManualInput();
             }
         } catch(e) {}
+    }
+
+    /* --- OFFLINE MODE LOGIC --- */
+    function setupOfflineMode() {
+        isOffline = true;
+        isHost = true;
+        document.getElementById('ui-layer').classList.add('hidden');
+        document.getElementById('game-layer').classList.remove('hidden');
+        document.getElementById('wait-msg').style.display = 'none';
+        
+        resizeCanvas();
+        initControls(); // Initialize Nipple.js + Buttons
+        startGame();    // Start loop immediately
     }
 
     /* --- HOST SETUP (From Speaker Menu) --- */
@@ -668,10 +695,8 @@
             document.getElementById('ui-layer').classList.add('hidden');
             document.getElementById('game-layer').classList.remove('hidden');
             resizeCanvas();
+            initControls(); // Init UI
             
-            // Re-render lucide icons in the game layer just in case
-            lucide.createIcons();
-
             if (isHost) {
                 startGame();
             } else {
@@ -687,7 +712,7 @@
         });
     }
 
-    /* --- PART 2: GAME LOGIC (Imported from Source A) --- */
+    /* --- PART 2: GAME LOGIC --- */
     
     // Game Constants
     const CANVAS_W = 800, CANVAS_H = 450;
@@ -718,6 +743,7 @@
     let gameLoopId;
 
     function setupGameDataChannels() {
+        if(isOffline) return;
         conn.on('data', (data) => {
             if (isHost) {
                 // Host receives Input from P2
@@ -735,9 +761,71 @@
         });
     }
 
-    /* --- INPUT HANDLING --- */
-    const buttons = document.querySelectorAll('.game-btn');
+    /* --- INPUT HANDLING & LIBRARY INTEGRATION --- */
     
+    // Dynamic Control Generator (Simulating a library approach)
+    function initControls() {
+        // 1. Initialize Nipple.js Joystick
+        const stickZone = document.getElementById('left-zone');
+        const stickManager = nipplejs.create({
+            zone: stickZone,
+            mode: 'static',
+            position: { left: '50%', top: '50%' },
+            color: 'white',
+            size: 100
+        });
+
+        stickManager.on('move', (evt, data) => {
+            const angle = data.angle.degree;
+            // Simple 4-way direction logic
+            const isRight = angle >= 337.5 || angle < 22.5 || (angle >= 292.5 && angle < 337.5) || (angle >= 22.5 && angle < 67.5);
+            const isLeft = angle >= 157.5 && angle < 202.5 || (angle >= 112.5 && angle < 157.5) || (angle >= 202.5 && angle < 247.5);
+            const isUp = angle >= 67.5 && angle < 112.5; // Optional Jump via Stick
+            
+            setInput('right', isRight);
+            setInput('left', isLeft);
+        });
+
+        stickManager.on('end', () => {
+            setInput('right', false);
+            setInput('left', false);
+        });
+
+        // 2. Initialize Buttons (Virtual Gamepad Style)
+        const btnZone = document.getElementById('right-zone');
+        btnZone.innerHTML = ''; // Clear
+        
+        // Helper to Create Button
+        function createGameBtn(id, label, x, y, size, cls, actionKey) {
+            const btn = document.createElement('div');
+            btn.className = 'v-btn ' + cls;
+            btn.innerText = label;
+            btn.style.width = size + 'px';
+            btn.style.height = size + 'px';
+            btn.style.left = x + 'px';
+            btn.style.top = y + 'px';
+            
+            // Touch Events
+            const start = (e) => { e.preventDefault(); btn.classList.add('pressed'); setInput(actionKey, true); };
+            const end = (e) => { e.preventDefault(); btn.classList.remove('pressed'); setInput(actionKey, false); };
+            
+            btn.addEventListener('touchstart', start);
+            btn.addEventListener('touchend', end);
+            btn.addEventListener('mousedown', start);
+            btn.addEventListener('mouseup', end);
+            
+            btnZone.appendChild(btn);
+        }
+
+        // Diamond Layout Configuration
+        // Center of zone is roughly 75, 75. 
+        // A (Bottom), B (Right), X (Left), Y (Top)
+        // Mapping: A=Jump, B=Atk, X=Block
+        createGameBtn('btn-a', 'A', 50, 90, 50, 'v-btn-a', 'jump');  // Bottom
+        createGameBtn('btn-b', 'B', 95, 45, 50, 'v-btn-b', 'atk');   // Right
+        createGameBtn('btn-x', 'X', 5, 45, 50, 'v-btn-x', 'block');  // Left
+    }
+
     function setInput(key, pressed) {
         if(isHost) {
             inputs.p1[key] = pressed;
@@ -746,21 +834,11 @@
             const myInputs = { ...inputs.p2 };
             myInputs[key] = pressed;
             inputs.p2[key] = pressed; // Predictive local update
-            if(conn && conn.open) conn.send({ type: 'INPUT', state: myInputs });
+            if(!isOffline && conn && conn.open) conn.send({ type: 'INPUT', state: myInputs });
         }
     }
 
-    buttons.forEach(btn => {
-        const key = btn.dataset.key;
-        btn.addEventListener('touchstart', (e) => { e.preventDefault(); btn.classList.add('pressed'); setInput(key, true); });
-        btn.addEventListener('touchend', (e) => { e.preventDefault(); btn.classList.remove('pressed'); setInput(key, false); });
-        
-        // Mouse for testing
-        btn.addEventListener('mousedown', () => { btn.classList.add('pressed'); setInput(key, true); });
-        btn.addEventListener('mouseup', () => { btn.classList.remove('pressed'); setInput(key, false); });
-        btn.addEventListener('mouseleave', () => { btn.classList.remove('pressed'); setInput(key, false); });
-    });
-
+    /* Keyboard Fallback */
     window.addEventListener('keydown', (e) => {
         const map = { 'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowUp': 'jump', 'KeyZ': 'atk', 'KeyX': 'block' };
         if(map[e.code]) setInput(map[e.code], true);
@@ -773,10 +851,11 @@
     /* --- GAME ENGINE (HOST ONLY) --- */
     function startGame() {
         document.getElementById('wait-msg').style.display = 'none';
+        if(gameLoopId) cancelAnimationFrame(gameLoopId);
         gameLoopId = requestAnimationFrame(gameLoop);
         
         setInterval(() => {
-            if(gameState.winner || !isConnected) return;
+            if(gameState.winner || (!isConnected && !isOffline)) return;
             if(gameState.time > 0) gameState.time--;
             else checkWinCondition();
         }, 1000);
@@ -787,7 +866,7 @@
         gameState.p2.hp = MAX_HP; gameState.p2.x = 600; gameState.p2.y = GROUND_Y; gameState.p2.state = 'idle';
         gameState.time = 60;
         gameState.winner = null;
-        conn.send({ type: 'STATE', state: gameState });
+        if(!isOffline) conn.send({ type: 'STATE', state: gameState });
     }
 
     function requestRematch() {
@@ -869,7 +948,7 @@
         updatePhysics(gameState.p2, inputs.p2, gameState.p1);
         checkWinCondition();
         
-        if(conn && conn.open) conn.send({ type: 'STATE', state: gameState });
+        if(!isOffline && conn && conn.open) conn.send({ type: 'STATE', state: gameState });
 
         render();
         updateHUD();
