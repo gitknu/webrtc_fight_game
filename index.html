@@ -13,25 +13,35 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
+<!-- Nipple.js for Virtual Joystick -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
 
 <style>
+    /* --- THEME FROM PRESENTATION APP (CONNECTION UI) --- */
     :root {
-        --bg-color: #222;
-        --ui-bg: #fff;
-        --p1-color: #2e7d32;
+        --color-bg: #222222;
+        --color-card: #ffffff;
+        --color-attention-high: #b80000; /* Red for Join/P2 */
+        --color-attention-med: #0b5394;  /* Blue for Host/P1 */
+        --color-success: #2e7d32;
+        --color-text: #000000;
+        --color-border: #cccccc;
+        --shadow: 0 4px 20px rgba(0,0,0,0.15);
+        
+        /* Game Specific Colors */
+        --p1-color: #2e7d32; 
         --p2-color: #c62828;
-        --accent: #0b5394;
-        --shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
 
     * { box-sizing: border-box; touch-action: none; -webkit-tap-highlight-color: transparent; user-select: none; }
 
     body {
         margin: 0; padding: 0;
-        background-color: var(--bg-color);
-        color: black;
+        background-color: var(--color-bg);
+        color: var(--color-text);
         font-family: 'Montserrat', sans-serif;
+        font-size: 16px;
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
         height: 100dvh; width: 100%;
         overflow: hidden; 
         display: flex; flex-direction: column; 
@@ -40,11 +50,13 @@
     /* --- UI LAYERS --- */
     #ui-layer {
         position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        background: #f4f4f4; z-index: 200;
+        background: rgba(244, 244, 244, 1); z-index: 200;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
-        padding: 10px;
+        padding: 5px;
+        overflow-y: auto;
     }
-    
+
+    /* Offline Button */
     #btn-offline {
         position: absolute; top: 15px; right: 15px;
         background: #333; color: white; border: 2px solid #555;
@@ -53,47 +65,152 @@
         display: flex; align-items: center; gap: 6px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
-
+    #btn-offline:active { transform: translateY(2px); }
+    
     .card {
-        background: var(--ui-bg); padding: 1rem; border-radius: 1.5rem;
-        text-align: center; width: 100%; max-width: 400px;
-        box-shadow: var(--shadow); border: 2px solid #ccc;
-        display: flex; flex-direction: column; gap: 15px; align-items: center;
-        max-height: 95vh; overflow-y: auto;
+        background: var(--color-card); 
+        color: var(--color-text);
+        padding: 0.6rem; 
+        border-radius: 1.2rem;
+        text-align: center; 
+        width: 100%; max-width: 400px;
+        height: auto;
+        max-height: 100%; 
+        display: flex; flex-direction: column; 
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: var(--shadow);
+        border: 2px solid var(--color-border);
+        gap: 10px;
     }
     
     .hidden { display: none !important; }
+    h3 { margin: 0; color: var(--color-text); font-weight: 800; font-size: 1.2rem; text-transform: uppercase; }
 
     /* Role Buttons */
-    .role-btn {
-        width: 100%; padding: 20px; border: none; border-radius: 1rem;
-        font-family: inherit; font-size: 1.5rem; font-weight: 800; color: white;
-        cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    #role-menu {
+        display: flex; flex-direction: column; gap: 15px;
+        width: 100%; max-width: 500px;
+        height: 100%; padding: 10px 0;
+        justify-content: center;
     }
-    .role-host { background: var(--p1-color); }
-    .role-join { background: var(--p2-color); }
 
-    /* Lock Interface */
-    #lock-container {
-        display: flex; justify-content: center; gap: 5px; margin: 10px 0; perspective: 500px;
+    .role-btn {
+        flex: 1; max-height: 40vh; 
+        border: none; border-radius: 1.2rem;
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(1.5rem, 5vw, 2.2rem); 
+        font-weight: 900;
+        color: white; cursor: pointer;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 15px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+        transition: transform 0.1s;
+        text-transform: uppercase;
     }
-    .lock-roller {
-        width: 35px; height: 50px; background: #fff; border: 2px solid #999;
-        border-radius: 8px; font-size: 1.8rem; font-weight: 800;
+    .role-btn:active { transform: scale(0.97); }
+    .role-host { background-color: var(--p1-color); border: 4px solid #1b5e20; }
+    .role-join { background-color: var(--p2-color); border: 4px solid #b71c1c; }
+
+    /* Action Bar */
+    .action-bar { display: flex; width: 100%; gap: 10px; margin-top: 5px; flex-shrink: 0; }
+    
+    button.btn-primary {
+        background: var(--color-attention-med); 
+        color: white; border: none; padding: 0.8rem; 
+        font-size: 1.1rem; font-family: 'Montserrat', sans-serif; font-weight: 700;
+        border-radius: 0.8rem; cursor: pointer; flex: 2; 
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2); text-transform: uppercase;
+    }
+    button.btn-primary:active { transform: scale(0.98); }
+
+    button.btn-secondary { 
+        background: white; color: #333; border: 2px solid #ccc; 
+        padding: 0.6rem; font-size: 1rem; font-weight: 600;
+        border-radius: 0.8rem; cursor: pointer; flex: 1; 
         display: flex; align-items: center; justify-content: center;
-        box-shadow: inset 0 0 5px rgba(0,0,0,0.1); cursor: grab;
     }
-    .btn-primary {
-        background: var(--accent); color: white; border: none; padding: 12px;
-        border-radius: 10px; font-weight: 700; width: 100%; font-size: 1.1rem;
-        cursor: pointer; text-transform: uppercase;
-        display: flex; align-items: center; justify-content: center; gap: 8px;
+
+    .icon-btn-group { display: flex; gap: 8px; margin-top: 5px; }
+    .icon-btn {
+        background: #f0f0f0; border: 1px solid #ddd;
+        border-radius: 8px; padding: 6px 12px;
+        color: #555; cursor: pointer;
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; font-weight: 600;
+        transition: all 0.2s;
     }
-    .btn-secondary {
-        background: #eee; color: #333; border: 2px solid #ccc; padding: 10px;
-        border-radius: 10px; font-weight: 700; width: 100%; cursor: pointer;
+    .icon-btn:active { transform: scale(0.95); background: #e0e0e0; }
+    .btn-success { background: #e8f5e9; color: var(--color-success); border-color: var(--color-success); }
+
+    /* DIPLOMAT LOCK UI */
+    #lock-ui-wrapper {
+        display: flex; flex-direction: column; width: 100%; align-items: center;
+        margin: 5px 0; position: relative; 
     }
+    #ghost-input {
+        position: absolute; opacity: 0; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;
+    }
+    #lock-container {
+        display: flex; justify-content: center; align-items: center;
+        gap: 4px; width: 100%; user-select: none; flex-shrink: 0;
+        perspective: 500px; padding: 5px;
+    }
+    #lock-container.focused { background-color: rgba(0,0,0,0.05); border-radius: 10px; }
+    .lock-group { display: flex; gap: 2px; }
+    .lock-spacer { width: 10px; }
+    
+    .lock-roller {
+        width: 32px; height: 50px; background: #fff;
+        border: 2px solid #ccc; border-radius: 6px;
+        font-size: 1.6rem; font-weight: 800; color: var(--color-text);
+        display: flex; align-items: center; justify-content: center;
+        cursor: grab; position: relative; overflow: hidden;
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.1); touch-action: none; 
+    }
+    .lock-roller::before {
+        content: ''; position: absolute; top:0; left:0; right:0; height: 12px;
+        background: linear-gradient(to bottom, rgba(0,0,0,0.2), transparent); pointer-events: none;
+    }
+    .lock-roller::after {
+        content: ''; position: absolute; bottom:0; left:0; right:0; height: 12px;
+        background: linear-gradient(to top, rgba(0,0,0,0.2), transparent); pointer-events: none;
+    }
+    .lock-roller span { z-index: 1; pointer-events: none; }
+    
+    .lock-arrow-row { display: flex; justify-content: center; gap: 4px; width: 100%; color: #999; margin: 2px 0; }
+    .lock-arrow-group { display: flex; gap: 2px; }
+    .lock-arrow-spacer { width: 10px; }
+    .arrow-icon { width: 32px; height: 16px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .arrow-icon:active { color: var(--color-attention-med); }
+    .arrow-icon svg { width: 16px; height: 16px; stroke-width: 3px; }
+
+    /* QR */
+    #reader {
+        width: 100%; max-width: 300px; margin: 0 auto;
+        background: #000; border: 2px solid var(--color-attention-med);
+        border-radius: 10px; overflow: hidden; min-height: 250px;
+    }
+    #reader video { width: 100%; height: 100%; object-fit: cover; }
+    #html5-qrcode-anchor-scan-type-change { display: none !important; }
+
+    #qr-container {
+        background:white; padding:5px; display:inline-flex; 
+        align-items: center; justify-content: center;
+        border: 2px solid var(--color-attention-med); border-radius: 10px;
+        max-height: 25vh; aspect-ratio: 1/1;
+    }
+    #qr-container img { max-width: 100%; max-height: 100%; height: auto !important; }
+
+    .id-display {
+        font-size: 1.5rem; font-weight: 800; color: var(--color-attention-med);
+        background: #f0f8ff; padding: 5px 10px; border-radius: 10px;
+        border: 2px dashed var(--color-attention-med); letter-spacing: 2px;
+        user-select: text;
+    }
+    .id-label { font-size: 0.7rem; text-transform: uppercase; color: #666; font-weight: 700; }
 
     /* --- GAME UI --- */
     #game-layer {
@@ -102,37 +219,29 @@
     }
 
     #hud {
-        height: 60px; background: #222; display: flex; align-items: center; 
-        padding: 0 10px; gap: 10px; border-bottom: 4px solid #111; z-index: 20;
+        height: 60px; background: #333; display: flex; align-items: center; 
+        padding: 0 10px; gap: 10px; border-bottom: 2px solid #555;
     }
     .hp-box { flex: 1; display: flex; flex-direction: column; }
-    .hp-label { color: #fff; font-size: 0.7rem; font-weight: 800; margin-bottom: 2px; text-shadow: 1px 1px 0 #000;}
-    .hp-bar-bg { width: 100%; height: 24px; background: #444; border: 2px solid #000; transform: skewX(-15deg); overflow: hidden; }
-    .hp-fill { height: 100%; width: 100%; transition: width 0.1s linear; box-shadow: inset 0 -4px 0 rgba(0,0,0,0.3); }
+    .hp-label { color: white; font-size: 0.7rem; font-weight: 700; margin-bottom: 2px;}
+    .hp-bar-bg { width: 100%; height: 20px; background: #555; border: 2px solid #000; skew: -10deg; }
+    .hp-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
     
-    #p1-fill { background: var(--p1-color); }
-    #p2-fill { background: var(--p2-color); }
+    #p1-fill { background: var(--p1-color); transform-origin: left; }
+    #p2-fill { background: var(--p2-color); transform-origin: left; }
     
     #timer { 
-        width: 60px; text-align: center; color: #fbc02d; font-weight: 900; font-size: 2rem; 
-        font-family: monospace; text-shadow: 2px 2px 0 #000;
+        width: 50px; text-align: center; color: yellow; font-weight: 900; font-size: 1.5rem; 
+        font-family: monospace; 
     }
 
     #canvas-container {
-        flex: 1; position: relative; background: #1a1a1a; overflow: hidden;
-        /* Retro Grid Background */
-        background-image: 
-            linear-gradient(#222 1px, transparent 1px),
-            linear-gradient(90deg, #222 1px, transparent 1px);
-        background-size: 40px 40px;
+        flex: 1; position: relative; background: #111; overflow: hidden;
+        background-image: linear-gradient(#1a1a1a 1px, transparent 1px), linear-gradient(90deg, #1a1a1a 1px, transparent 1px);
+        background-size: 20px 20px;
         display: flex; justify-content: center; align-items: center;
     }
-    
-    canvas { 
-        background: transparent; 
-        box-shadow: 0 10px 40px rgba(0,0,0,0.6); 
-        image-rendering: pixelated; /* CRITICAL FOR RETRO LOOK */
-    }
+    canvas { background: transparent; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
 
     #waiting-overlay {
         position: absolute; top:0; left:0; width:100%; height:100%;
@@ -141,127 +250,223 @@
         z-index: 50; text-align: center;
     }
 
-    /* CONTROLS OVERLAY (DYNAMIC LIBRARY) */
+    /* CONTROLS OVERLAY - REPLACED WITH LIBRARY/DYNAMIC UI */
     #controls-layer {
-        position: absolute; bottom: 20px; left: 0; width: 100%;
-        height: 180px; pointer-events: none;
+        position: absolute; bottom: 10px; left: 0; width: 100%;
+        height: 160px; pointer-events: none;
         display: flex; justify-content: space-between; align-items: flex-end;
-        padding: 0 30px;
+        padding: 0 20px;
         z-index: 100;
     }
     #left-zone, #right-zone {
-        width: 160px; height: 160px; pointer-events: auto;
+        width: 150px; height: 150px; pointer-events: auto;
         position: relative;
     }
     
-    /* Dynamic Button Styles */
+    /* Dynamic Button Styles (Simulating a UI library) */
     .v-btn {
         position: absolute;
         border-radius: 50%;
-        background: rgba(255,255,255,0.1);
-        border: 3px solid rgba(255,255,255,0.3);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 2px 5px rgba(255,255,255,0.1);
+        background: rgba(255,255,255,0.15);
+        border: 2px solid rgba(255,255,255,0.4);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         display: flex; align-items: center; justify-content: center;
-        color: white; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.4rem;
-        backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-        transition: transform 0.08s, background 0.08s, border-color 0.08s;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        color: white; font-family: 'Montserrat', sans-serif; font-weight: 900; font-size: 1.2rem;
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        transition: transform 0.1s, background 0.1s;
     }
-    .v-btn:active, .v-btn.pressed { transform: scale(0.92) translateY(2px); background: rgba(255,255,255,0.25); }
-    
-    /* SNES Colors */
+    .v-btn:active, .v-btn.pressed { transform: scale(0.9); background: rgba(255,255,255,0.3); }
+    /* Specific Colors mimicking classical controllers */
     .v-btn-a { background: rgba(46, 125, 50, 0.4); border-color: #4caf50; }
     .v-btn-b { background: rgba(198, 40, 40, 0.4); border-color: #e57373; }
     .v-btn-x { background: rgba(11, 83, 148, 0.4); border-color: #64b5f6; }
 
-    #reader { width: 100%; max-width: 300px; height: 250px; background: black; margin: 0 auto; border-radius: 10px; overflow: hidden; border: 2px solid var(--accent); }
-    #html5-qrcode-anchor-scan-type-change { display: none !important; }
-    #qr-container { background:white; padding:10px; border-radius:10px; border: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 </style>
 </head>
 <body>
 
-<!-- UI LAYER -->
+<!-- 1. UI LAYER (From Source B - The Presentation App Logic) -->
 <div id="ui-layer">
+    <!-- OFFLINE BUTTON (NEW) -->
     <button id="btn-offline" onclick="setupOfflineMode()">
         <i data-lucide="play-circle"></i> OFFLINE TEST
     </button>
     
     <!-- MAIN MENU -->
-    <div id="menu-main" class="card">
-        <h1 style="font-weight:900; margin:0; line-height:0.9; font-size: 2.5rem; text-transform: uppercase; letter-spacing: -1px;">
-            Pixel<br><span style="color:var(--p2-color)">Brawler</span>
-        </h1>
-        <div style="flex:1; width:100%; display:flex; flex-direction:column; gap:15px; justify-content:center;">
-            <button class="role-btn role-host" onclick="setupHost()">
-                <i data-lucide="swords" width="48" height="48"></i> CREATE GAME
+    <div id="role-menu">
+        <h1 style="text-align:center; margin:0; line-height:0.9; font-weight:900; font-size:3rem; color:#333;">PIXEL<br><span style="color:var(--p2-color)">BRAWLER</span></h1>
+        
+        <button class="role-btn role-host" onclick="setupHostUI()">
+            <div style="display:flex; flex-direction:column; align-items:center;">
+                <i data-lucide="swords" width="64" height="64"></i>
+                CREATE GAME
+            </div>
+        </button>
+        <button class="role-btn role-join" onclick="setupJoinUI()">
+             <div style="display:flex; flex-direction:column; align-items:center;">
+                <i data-lucide="gamepad-2" width="64" height="64"></i>
+                JOIN GAME
+            </div>
+        </button>
+    </div>
+
+    <!-- JOIN MENU (DIPLOMAT STYLE) -->
+    <div id="join-menu" class="card hidden">
+        <h3>PLAYER 2 (JOIN)</h3>
+        
+        <!-- SCANNER -->
+        <div id="reader"></div> 
+
+        <div id="lock-ui-wrapper">
+            <!-- Ghost Input -->
+            <input type="tel" id="ghost-input" maxlength="9" inputmode="numeric" pattern="[0-9]*" autocomplete="off">
+            
+            <!-- TOP ARROWS -->
+            <div class="lock-arrow-row">
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(0, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(1, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(2, 1)"><i data-lucide="chevron-up"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(3, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(4, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(5, 1)"><i data-lucide="chevron-up"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(6, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(7, 1)"><i data-lucide="chevron-up"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(8, 1)"><i data-lucide="chevron-up"></i></div>
+                </div>
+            </div>
+
+            <!-- ROLLERS -->
+            <div id="lock-container" onclick="triggerKeyboard()">
+                <div class="lock-group">
+                    <div class="lock-roller" id="d0"><span>0</span></div>
+                    <div class="lock-roller" id="d1"><span>0</span></div>
+                    <div class="lock-roller" id="d2"><span>0</span></div>
+                </div>
+                <div class="lock-spacer"></div>
+                <div class="lock-group">
+                    <div class="lock-roller" id="d3"><span>0</span></div>
+                    <div class="lock-roller" id="d4"><span>0</span></div>
+                    <div class="lock-roller" id="d5"><span>0</span></div>
+                </div>
+                <div class="lock-spacer"></div>
+                <div class="lock-group">
+                    <div class="lock-roller" id="d6"><span>0</span></div>
+                    <div class="lock-roller" id="d7"><span>0</span></div>
+                    <div class="lock-roller" id="d8"><span>0</span></div>
+                </div>
+            </div>
+
+            <!-- BOTTOM ARROWS -->
+            <div class="lock-arrow-row">
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(0, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(1, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(2, -1)"><i data-lucide="chevron-down"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(3, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(4, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(5, -1)"><i data-lucide="chevron-down"></i></div>
+                </div>
+                <div class="lock-arrow-spacer"></div>
+                <div class="lock-arrow-group">
+                    <div class="arrow-icon" onclick="changeDigit(6, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(7, -1)"><i data-lucide="chevron-down"></i></div>
+                    <div class="arrow-icon" onclick="changeDigit(8, -1)"><i data-lucide="chevron-down"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <button class="icon-btn" style="width:100%; justify-content:center;" onclick="pasteId()">
+            <i data-lucide="clipboard-paste"></i> PASTE ID
+        </button>
+
+        <div class="action-bar">
+            <button class="btn-secondary" onclick="location.reload()">
+                <i data-lucide="arrow-left"></i>
             </button>
-            <button class="role-btn role-join" onclick="setupJoin()">
-                <i data-lucide="gamepad-2" width="48" height="48"></i> JOIN GAME
+            <button class="btn-primary" onclick="connectAsClient()">
+                <i data-lucide="plug"></i> CONNECT
             </button>
         </div>
     </div>
 
     <!-- HOST MENU -->
-    <div id="menu-host" class="card hidden">
-        <h3 style="margin:5px 0;">HOST LOBBY</h3>
+    <div id="host-menu" class="card hidden">
+        <h3>PLAYER 1 (HOST)</h3>
+        
         <div id="qr-container"></div>
-        <div style="font-size: 1.8rem; font-weight:900; letter-spacing:3px; color:var(--accent); font-family: monospace;">
-            <span id="host-id-display">...</span>
-        </div>
-        <div class="icon-btn-group" style="display:flex; gap:10px;">
-            <button class="btn-secondary" onclick="copyId()"><i data-lucide="copy"></i> COPY</button>
-            <button class="btn-secondary" onclick="shareGame()"><i data-lucide="share-2"></i> SHARE</button>
-        </div>
-        <button class="btn-secondary" onclick="location.reload()" style="margin-top:auto">CANCEL</button>
-    </div>
-
-    <!-- JOIN MENU -->
-    <div id="menu-join" class="card hidden">
-        <h3 style="margin:5px 0;">JOIN LOBBY</h3>
-        <!-- Rotary Lock -->
-        <div id="lock-container">
-            <div class="lock-group" id="input-group-1"></div> <!-- Generated via JS -->
+        
+        <div style="display:flex; flex-direction:column; align-items: center; gap:2px; width:100%;">
+            <span class="id-label">GAME ID</span>
+            <div id="host-id-display" class="id-display">...</div>
+            
+            <div class="icon-btn-group">
+                <button class="icon-btn" onclick="copyId()">
+                    <i data-lucide="copy"></i> COPY
+                </button>
+                <button class="icon-btn" onclick="shareId()">
+                    <i data-lucide="share-2"></i> SHARE
+                </button>
+            </div>
         </div>
         
-        <button class="btn-secondary" style="margin-bottom: 10px;" onclick="pasteId()"><i data-lucide="clipboard"></i> PASTE ID</button>
-        <button class="btn-primary" onclick="joinGameManually()">CONNECT</button>
-        
-        <div style="width:100%; border-top:1px solid #ddd; margin:10px 0; padding-top:10px;">
-            <div id="reader"></div>
+        <div style="font-size:0.9rem; color:#555; margin:10px 0;">
+            Waiting for Player 2...
         </div>
-        <button class="btn-secondary" onclick="location.reload()">BACK</button>
+
+        <button class="btn-secondary" style="width:100%" onclick="location.reload()">
+            <i data-lucide="arrow-left"></i> CANCEL
+        </button>
     </div>
 
-    <div id="menu-loading" class="card hidden">
-        <i data-lucide="loader-2" class="spin" style="width: 48px; height: 48px; color: var(--accent);"></i>
-        <h3 id="loading-text">Connecting...</h3>
+    <!-- LOADING -->
+    <div id="loading-menu" class="card hidden">
+        <i data-lucide="loader-2" class="spin" style="width: 48px; height: 48px; color: var(--color-attention-med);"></i>
+        <h3 id="loading-text" style="margin-top:20px;">Connecting...</h3>
+        <button class="btn-secondary" onclick="location.reload()" style="margin-top:20px;">
+            <i data-lucide="x"></i> CANCEL
+        </button>
     </div>
 </div>
 
-<!-- GAME LAYER -->
+<!-- 2. GAME LAYER (From Source A - The Game Logic) -->
 <div id="game-layer" class="hidden">
+    <!-- HUD -->
     <div id="hud">
         <div class="hp-box">
-            <span class="hp-label">P1 (GREEN)</span>
+            <span class="hp-label">PLAYER 1</span>
             <div class="hp-bar-bg"><div id="p1-fill" class="hp-fill"></div></div>
         </div>
         <div id="timer">60</div>
         <div class="hp-box" style="align-items: flex-end;">
-            <span class="hp-label">P2 (RED)</span>
+            <span class="hp-label">PLAYER 2</span>
             <div class="hp-bar-bg"><div id="p2-fill" class="hp-fill"></div></div>
         </div>
     </div>
 
+    <!-- CANVAS -->
     <div id="canvas-container">
         <canvas id="gameCanvas" width="800" height="450"></canvas>
+        
         <div id="waiting-overlay">
             <h2 id="wait-msg">WAITING FOR OPPONENT...</h2>
             <button id="rematch-btn" class="btn-primary hidden" style="width:200px; margin-top:20px;" onclick="requestRematch()">REMATCH</button>
         </div>
     </div>
 
+    <!-- CONTROLS OVERLAY (DYNAMIC LIBRARY) -->
     <div id="controls-layer">
         <div id="left-zone"></div>
         <div id="right-zone"></div>
@@ -269,538 +474,554 @@
 </div>
 
 <script>
-    /* --- CONFIGURATION --- */
+    /* --- PART 1: UI & CONNECTION LOGIC --- */
     const APP_PREFIX = "px_brawl_";
-    const lockDigits = [0,0,0,0,0,0];
+    const lockDigits = [0,0,0,0,0,0,0,0,0];
     let html5QrcodeScanner = null;
-    
-    // Game Constants
-    const CANVAS_W = 800, CANVAS_H = 450;
-    const GROUND_Y = 380;
-    const PLAYER_W = 60, PLAYER_H = 100; // Hitbox
-    const GRAVITY = 0.8;
-    const SPEED = 5;
-    const CRAWL_SPEED = 2.5;
-    const JUMP_FORCE = -16;
-    const MAX_HP = 100;
-    const ATTACK_COOLDOWN = 25;
-    
-    /* --- STATE --- */
     let peer, conn;
-    let isHost = false, isOffline = false, isConnected = false;
-    let myId = null;
-    let gameLoopId;
-    
-    const inputs = {
-        p1: { left: false, right: false, up: false, down: false, jump: false, block: false, atk: false },
-        p2: { left: false, right: false, up: false, down: false, jump: false, block: false, atk: false }
-    };
-    
-    let gameState = {
-        time: 60,
-        frameCount: 0,
-        winner: null,
-        p1: { x: 100, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: 1, state: 'idle', cooldown: 0, ducking: false },
-        p2: { x: 600, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: -1, state: 'idle', cooldown: 0, ducking: false }
-    };
+    let myIdRaw = null;
+    let isHost = false;
+    let isConnected = false;
+    let isOffline = false;
 
     lucide.createIcons();
 
-    /* --- SPRITE / ASSET LIBRARY (Procedural Generation) --- */
-    // We create a robust Asset Manager to generate pixel art sheets on the fly
-    // This avoids external dependencies/404s while keeping code self-contained.
-    
-    class AssetGenerator {
-        static createFighterSheet(color) {
-            const cvs = document.createElement('canvas');
-            const size = 64; // Frame size
-            const cols = 5; // Frames per row
-            const rows = 5; // Rows (actions)
-            cvs.width = size * cols;
-            cvs.height = size * rows;
-            const ctx = cvs.getContext('2d');
-            
-            // Helper to draw a pixel character
-            const drawFrame = (row, col, pose) => {
-                const x = col * size;
-                const y = row * size;
-                const cx = x + size/2;
-                const cy = y + size; // Bottom aligned
-                
-                ctx.save();
-                
-                // Body Color
-                ctx.fillStyle = color; 
-                
-                // --- IDLE (Row 0) ---
-                if (row === 0) {
-                    const bob = (col % 2 === 0) ? 0 : 2;
-                    ctx.fillRect(cx - 10, cy - 40 + bob, 20, 30); // Body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 54 + bob, 16, 14); // Head
-                    ctx.fillStyle = '#333'; ctx.fillRect(cx + 2, cy - 50 + bob, 4, 2); // Eye
-                }
-                // --- RUN (Row 1) ---
-                else if (row === 1) {
-                    const lean = 5;
-                    ctx.fillRect(cx - 10 + lean, cy - 40, 20, 28); // Body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8 + lean, cy - 54, 16, 14); // Head
-                    // Legs logic
-                    ctx.fillStyle = '#111';
-                    if (col % 4 === 0) { ctx.fillRect(cx-12, cy-12, 8, 12); ctx.fillRect(cx+4, cy-12, 8, 12); } 
-                    else if (col % 4 === 1) { ctx.fillRect(cx-8, cy-15, 8, 10); ctx.fillRect(cx+8, cy-8, 8, 8); }
-                    else { ctx.fillRect(cx+8, cy-12, 8, 12); ctx.fillRect(cx-12, cy-12, 8, 12); }
-                }
-                // --- JUMP (Row 2) ---
-                else if (row === 2) {
-                    ctx.fillRect(cx - 10, cy - 50, 20, 25); // High body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 64, 16, 14); // Head
-                    ctx.fillStyle = '#111'; ctx.fillRect(cx - 12, cy - 25, 10, 10); ctx.fillRect(cx + 2, cy - 20, 10, 8); // Tucked legs
-                }
-                // --- DUCK/CRAWL (Row 3) ---
-                else if (row === 3) {
-                    ctx.fillRect(cx - 12, cy - 25, 24, 25); // Short body
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 39, 16, 14); // Head
-                }
-                // --- ATTACK (Row 4) ---
-                else if (row === 4) {
-                    ctx.fillRect(cx - 10, cy - 40, 20, 30); 
-                    ctx.fillStyle = '#fac'; ctx.fillRect(cx - 8, cy - 54, 16, 14);
-                    // Fist
-                    ctx.fillStyle = '#f00'; // Glove
-                    const ext = (col > 0 && col < 3) ? 25 : 5;
-                    ctx.fillRect(cx + 5, cy - 35, ext, 10); 
-                }
-                
-                ctx.restore();
-            };
-
-            for(let r=0; r<rows; r++) {
-                for(let c=0; c<cols; c++) {
-                    drawFrame(r, c);
-                }
-            }
-            return cvs;
-        }
-    }
-
-    class SpriteAnimator {
-        constructor(color) {
-            this.sheet = AssetGenerator.createFighterSheet(color);
-            this.frameSize = 64;
-            this.animations = {
-                idle:   { row: 0, frames: 4, speed: 10 },
-                run:    { row: 1, frames: 4, speed: 5 },
-                jump:   { row: 2, frames: 1, speed: 1 },
-                duck:   { row: 3, frames: 1, speed: 1 },
-                crawl:  { row: 3, frames: 2, speed: 10 }, // Re-use duck row, simulated frames
-                attack: { row: 4, frames: 4, speed: 3 },
-                stun:   { row: 0, frames: 1, speed: 1 } // Frame 0 idle static
-            };
-            this.currentAnim = 'idle';
-            this.frameIndex = 0;
-            this.tick = 0;
-        }
-
-        draw(ctx, x, y, w, h, dir, state, vx, ducking) {
-            // Determine Animation Key
-            let key = 'idle';
-            if (state === 'stun') key = 'stun';
-            else if (state === 'attack') key = 'attack';
-            else if (Math.abs(vx) > 0.1) key = ducking ? 'crawl' : 'run';
-            else if (ducking) key = 'duck';
-            else if (y < GROUND_Y) key = 'jump';
-
-            // Animation Logic
-            if (key !== this.currentAnim) {
-                this.currentAnim = key;
-                this.frameIndex = 0;
-                this.tick = 0;
-            }
-
-            const anim = this.animations[key];
-            this.tick++;
-            if (this.tick >= anim.speed) {
-                this.tick = 0;
-                this.frameIndex = (this.frameIndex + 1) % anim.frames;
-            }
-
-            // Draw
-            const sx = this.frameIndex * this.frameSize;
-            const sy = anim.row * this.frameSize;
-            
-            ctx.save();
-            ctx.translate(x + w/2, y + h); // Pivot bottom center
-            ctx.scale(dir, 1); // Flip horizontal
-            
-            // Shadow
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.beginPath(); ellipse(ctx, 0, 0, 20, 5); ctx.fill();
-
-            // Sprite
-            // Draw slightly larger than hitbox for visual flair
-            const drawSize = 140; 
-            ctx.drawImage(this.sheet, sx, sy, this.frameSize, this.frameSize, -drawSize/2, -drawSize, drawSize, drawSize);
-            
-            ctx.restore();
-        }
-    }
-    
-    // Canvas Helper
-    function ellipse(ctx, cx, cy, rx, ry){
-        ctx.save(); ctx.beginPath(); ctx.translate(cx-rx, cy-ry);
-        ctx.scale(rx, ry); ctx.arc(1, 1, 1, 0, 2 * Math.PI, false);
-        ctx.restore();
-    }
-
-    const p1Sprite = new SpriteAnimator('#2e7d32');
-    const p2Sprite = new SpriteAnimator('#c62828');
-
     /* --- INITIALIZATION --- */
     window.onload = () => {
-        setupLockUI();
         const params = new URLSearchParams(window.location.search);
         if (params.get('host')) {
-            hide('menu-main');
-            show('menu-loading');
-            connectToHost(params.get('host'));
+            // Auto Join Flow
+            document.getElementById('role-menu').classList.add('hidden');
+            joinGame(params.get('host'));
         }
+        initLockInterface();
+        initManualInputListener();
     };
 
-    /* --- UI FUNCTIONS --- */
-    function show(id) { document.getElementById(id).classList.remove('hidden'); }
-    function hide(id) { document.getElementById(id).classList.add('hidden'); }
-    
-    function setupLockUI() {
-        const c = document.getElementById('lock-container');
-        c.innerHTML = '';
-        for(let i=0; i<6; i++) {
-            const d = document.createElement('div');
-            d.className = 'lock-roller';
-            d.id = 'd'+i;
-            d.innerText = '0';
-            // Simple drag logic
-            let startY = 0;
-            d.addEventListener('touchstart', e => startY = e.touches[0].clientY);
-            d.addEventListener('touchmove', e => {
-                const diff = startY - e.touches[0].clientY;
-                if(Math.abs(diff) > 20) {
-                    changeDigit(i, diff > 0 ? 1 : -1);
-                    startY = e.touches[0].clientY;
-                }
-            });
-            d.addEventListener('click', () => changeDigit(i, 1));
-            c.appendChild(d);
-        }
-    }
-
-    function changeDigit(idx, dir) {
-        lockDigits[idx] = (lockDigits[idx] + dir + 10) % 10;
-        document.getElementById('d'+idx).innerText = lockDigits[idx];
+    /* --- LOCK INTERFACE LOGIC --- */
+    function initLockInterface() {
+        for (let i = 0; i < 9; i++) setupRotaryLock(i);
+        updateManualInput();
     }
     
-    function getCode() { return lockDigits.join(''); }
+    function triggerKeyboard() {
+        const inp = document.getElementById('ghost-input');
+        if(inp) { inp.focus(); document.getElementById('lock-container').classList.add('focused'); }
+    }
+    
+    function initManualInputListener() {
+        const inp = document.getElementById('ghost-input');
+        if(!inp) return;
+        inp.addEventListener('blur', () => { document.getElementById('lock-container').classList.remove('focused'); });
+        inp.addEventListener('input', (e) => {
+            const val = e.target.value.replace(/[^0-9]/g, '');
+            for(let i=0; i<9; i++) {
+                lockDigits[i] = (i < val.length) ? parseInt(val[i]) : 0;
+                const el = document.getElementById('d' + i);
+                if(el) el.querySelector('span').innerText = lockDigits[i];
+            }
+        });
+    }
+    
+    function updateManualInput() {
+        const inp = document.getElementById('ghost-input');
+        if(inp) inp.value = lockDigits.join('').replace(/^0+/, '');
+    }
 
-    /* --- NETWORKING SETUP --- */
-    function setupHost() {
-        isHost = true;
-        myId = Math.floor(100000 + Math.random() * 900000).toString();
-        hide('menu-main'); show('menu-host');
-        document.getElementById('host-id-display').innerText = myId.replace(/(\d{3})(\d{3})/, "$1 $2");
+    function setupRotaryLock(index) {
+        const el = document.getElementById('d' + index);
+        if (!el) return;
+        let startY = 0; let isDragging = false;
         
-        const fullUrl = window.location.href.split('?')[0] + '?host=' + myId;
-        document.getElementById('qr-container').innerHTML = "";
-        new QRCode(document.getElementById("qr-container"), { text: fullUrl, width: 200, height: 200, colorDark: "#000" });
-
-        peer = new Peer(APP_PREFIX + myId);
-        peer.on('open', () => console.log('Host Ready'));
-        peer.on('connection', c => {
-            if(conn) c.close();
-            conn = c; setupConnection();
-        });
+        el.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; isDragging = true; }, {passive: false});
+        el.addEventListener('touchmove', (e) => {
+            if(!isDragging) return;
+            const delta = startY - e.touches[0].clientY;
+            if (Math.abs(delta) > 5) e.preventDefault(); 
+            if (Math.abs(delta) > 25) {
+                changeDigit(index, delta > 0 ? 1 : -1); startY = e.touches[0].clientY; 
+            }
+        }, {passive: false});
+        el.addEventListener('touchend', () => { isDragging = false; });
     }
 
-    function setupJoin() {
-        isHost = false;
-        hide('menu-main'); show('menu-join');
-        setTimeout(() => {
-            html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 200, height: 200 } }, false);
-            html5QrcodeScanner.render(decoded => {
-                let id = decoded;
-                try { id = new URL(decoded).searchParams.get('host') || id; } catch(e){}
-                handleCodeInput(id);
-                html5QrcodeScanner.clear();
-            }, ()=>{});
-        }, 100);
-    }
-    
-    function setupOfflineMode() {
-        isOffline = true;
-        isHost = true;
-        hide('ui-layer'); show('game-layer');
-        document.getElementById('wait-msg').style.display = 'none';
-        initControls();
-        resizeCanvas();
-        startGame();
+    function changeDigit(index, delta) {
+        lockDigits[index] = (lockDigits[index] + delta + 10) % 10;
+        document.getElementById('d'+index).querySelector('span').innerText = lockDigits[index];
+        updateManualInput();
     }
 
-    function joinGameManually() { handleCodeInput(getCode()); }
+    function getLockCode() { return lockDigits.join(''); }
 
-    function handleCodeInput(code) {
-        if(!code || code.length < 6) return alert("Invalid ID");
-        hide('menu-join'); show('menu-loading');
-        connectToHost(code);
-    }
-
-    function connectToHost(id) {
-        peer = new Peer();
-        peer.on('open', () => {
-            conn = peer.connect(APP_PREFIX + id, { reliable: true });
-            setTimeout(() => { if(!isConnected) { alert("Host not found"); location.reload(); } }, 5000);
-            setupConnection();
-        });
-    }
-    
-    async function shareGame() {
-        const url = window.location.href.split('?')[0] + '?host=' + myId;
-        if(navigator.share) try { await navigator.share({ title: 'Pixel Brawler', url }); } catch(e){}
-        else copyId();
-    }
-    
+    /* --- COPY / PASTE / SHARE --- */
     async function copyId() {
-        const url = window.location.href.split('?')[0] + '?host=' + myId;
-        await navigator.clipboard.writeText(url);
-        alert("Copied!");
+        const link = window.location.href.split('?')[0] + '?host=' + myIdRaw;
+        try { await navigator.clipboard.writeText(link); alert("Link copied!"); } catch (err) {}
+    }
+    async function shareId() {
+        const link = window.location.href.split('?')[0] + '?host=' + myIdRaw;
+        if (navigator.share) { try { await navigator.share({ title: 'Pixel Brawler', url: link }); } catch (err) {} } 
+        else { copyId(); }
     }
     async function pasteId() {
         try {
             const text = await navigator.clipboard.readText();
-            let num = text.replace(/\D/g, '');
-            if(text.includes('host=')) num = text.split('host=')[1].substring(0,6);
-            if(num.length>=6) {
-                for(let i=0; i<6; i++) { lockDigits[i]=parseInt(num[i]); document.getElementById('d'+i).innerText = num[i]; }
+            let numbers = text.replace(/\D/g, ''); 
+            if (text.includes('host=')) {
+                const match = text.match(/host=([0-9]+)/);
+                if (match && match[1]) numbers = match[1];
             }
-        } catch(e){}
+            if(numbers.length > 0) {
+                for(let i=0; i<9; i++) {
+                    lockDigits[i] = (i < numbers.length) ? parseInt(numbers[i]) : 0;
+                    document.getElementById('d'+i).querySelector('span').innerText = lockDigits[i];
+                }
+                updateManualInput();
+            }
+        } catch(e) {}
     }
 
-    function setupConnection() {
+    /* --- OFFLINE MODE LOGIC --- */
+    function setupOfflineMode() {
+        isOffline = true;
+        isHost = true;
+        document.getElementById('ui-layer').classList.add('hidden');
+        document.getElementById('game-layer').classList.remove('hidden');
+        document.getElementById('wait-msg').style.display = 'none';
+        
+        resizeCanvas();
+        initControls(); // Initialize Nipple.js + Buttons
+        startGame();    // Start loop immediately
+    }
+
+    /* --- HOST SETUP (From Speaker Menu) --- */
+    function generateShortId() { return Math.floor(100000000 + Math.random() * 900000000).toString(); }
+
+    function setupHostUI() {
+        isHost = true;
+        document.getElementById('role-menu').classList.add('hidden');
+        document.getElementById('host-menu').classList.remove('hidden');
+        
+        myIdRaw = generateShortId();
+        document.getElementById('host-id-display').innerText = myIdRaw.replace(/(\d{3})(\d{3})(\d{3})/, "$1 $2 $3");
+        
+        // QR Code
+        const fullUrl = window.location.href.split('?')[0] + '?host=' + myIdRaw;
+        document.getElementById("qr-container").innerHTML = "";
+        new QRCode(document.getElementById("qr-container"), { 
+            text: fullUrl, width: 200, height: 200, colorDark: "#000000"
+        });
+
+        peer = new Peer(APP_PREFIX + myIdRaw);
+        
+        peer.on('open', () => { console.log('Host Ready'); });
+        
+        peer.on('connection', (c) => {
+            if(conn) { c.close(); return; } 
+            conn = c;
+            transitionToGame();
+        });
+        
+        peer.on('error', err => {
+            if(err.type === 'unavailable-id') {
+                peer.destroy(); setTimeout(setupHostUI, 200); // Retry ID gen
+            } else {
+                alert("Error: " + err.type);
+            }
+        });
+    }
+
+    /* --- JOIN SETUP (From Listener Menu) --- */
+    function setupJoinUI() {
+        isHost = false;
+        document.getElementById('role-menu').classList.add('hidden');
+        document.getElementById('join-menu').classList.remove('hidden');
+
+        // Init Scanner
+        setTimeout(() => {
+            html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+                fps: 10, qrbox: { width: 200, height: 200 }, showTorchButtonIfSupported: true
+            }, false);
+            html5QrcodeScanner.render((decodedText) => {
+                let hostId = decodedText;
+                try {
+                    const url = new URL(decodedText);
+                    const params = new URLSearchParams(url.search);
+                    if(params.get('host')) hostId = params.get('host');
+                } catch(e) {}
+                joinGame(hostId);
+                if(html5QrcodeScanner) html5QrcodeScanner.clear();
+            }, (err) => {});
+        }, 300);
+    }
+
+    function connectAsClient() {
+        joinGame(getLockCode());
+    }
+
+    function joinGame(hostId) {
+        if(!hostId) return;
+        hostId = hostId.toString().replace(/\D/g, ''); // Extract only digits
+        if(hostId.length < 5) return alert("Invalid ID");
+
+        document.getElementById('join-menu').classList.add('hidden');
+        document.getElementById('loading-menu').classList.remove('hidden');
+        document.getElementById('loading-text').innerText = "Connecting to " + hostId + "...";
+
+        peer = new Peer();
+        peer.on('open', () => {
+            conn = peer.connect(APP_PREFIX + hostId, { reliable: true });
+            
+            // Timeout safety
+            setTimeout(() => {
+                if(!isConnected) {
+                    alert("Host not found.");
+                    location.href = window.location.href.split('?')[0]; 
+                }
+            }, 5000);
+
+            transitionToGame();
+        });
+        
+        peer.on('error', err => {
+            alert("Connection Failed: " + err.type);
+            location.href = window.location.href.split('?')[0];
+        });
+    }
+
+    function transitionToGame() {
         conn.on('open', () => {
             isConnected = true;
-            hide('ui-layer'); show('game-layer');
-            initControls();
+            document.getElementById('ui-layer').classList.add('hidden');
+            document.getElementById('game-layer').classList.remove('hidden');
             resizeCanvas();
-            if(isHost) startGame();
-            else document.getElementById('wait-msg').style.display = 'none';
+            initControls(); // Init UI
+            
+            if (isHost) {
+                startGame();
+            } else {
+                document.getElementById('wait-msg').style.display = 'none'; 
+            }
+            
+            setupGameDataChannels();
         });
-        conn.on('data', data => {
-            if(isHost) {
+        
+        conn.on('close', () => {
+             alert("Disconnected");
+             location.href = window.location.href.split('?')[0];
+        });
+    }
+
+    /* --- PART 2: GAME LOGIC --- */
+    
+    // Game Constants
+    const CANVAS_W = 800, CANVAS_H = 450;
+    const GROUND_Y = 380;
+    const PLAYER_W = 50, PLAYER_H = 100;
+    const GRAVITY = 0.8;
+    const SPEED = 5;
+    const JUMP_FORCE = -15;
+    const MAX_HP = 100;
+    const ATTACK_RANGE = 80;
+    const ATTACK_COOLDOWN = 30; // frames
+    
+    // Input State
+    const inputs = {
+        p1: { left: false, right: false, jump: false, block: false, atk: false },
+        p2: { left: false, right: false, jump: false, block: false, atk: false }
+    };
+    
+    // Game State
+    let gameState = {
+        time: 60,
+        frameCount: 0,
+        winner: null,
+        p1: { x: 100, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: 1, state: 'idle', cooldown: 0, color: '#2e7d32' },
+        p2: { x: 600, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: -1, state: 'idle', cooldown: 0, color: '#c62828' }
+    };
+    
+    let gameLoopId;
+
+    function setupGameDataChannels() {
+        if(isOffline) return;
+        conn.on('data', (data) => {
+            if (isHost) {
+                // Host receives Input from P2
                 if(data.type === 'INPUT') inputs.p2 = data.state;
                 if(data.type === 'REMATCH') resetGame();
             } else {
+                // Client receives Game State
                 if(data.type === 'STATE') {
                     gameState = data.state;
-                    // Sync P2 input predictions
+                    render();
+                    updateHUD();
+                    handleWinnerUI();
                 }
             }
         });
-        conn.on('close', () => location.reload());
     }
 
-    /* --- GAME ENGINE --- */
+    /* --- INPUT HANDLING & LIBRARY INTEGRATION --- */
     
-    // CONTROL LIBRARY INTEGRATION
+    // Dynamic Control Generator (Simulating a library approach)
     function initControls() {
-        // 1. NippleJS Stick
-        const stick = nipplejs.create({
-            zone: document.getElementById('left-zone'),
-            mode: 'static', position: { left: '50%', top: '50%' }, color: 'white', size: 100
-        });
-        
-        stick.on('move', (e, data) => {
-            const angle = data.angle.degree;
-            const force = data.force;
-            if(force > 0.1) {
-                // Mapping Angles to D-Pad Logic
-                const isUp = angle >= 45 && angle < 135;
-                const isDown = angle >= 225 && angle < 315;
-                const isLeft = angle >= 135 && angle < 225;
-                const isRight = angle < 45 || angle >= 315;
-                
-                setInput('right', isRight);
-                setInput('left', isLeft);
-                setInput('up', isUp); // Stick Jump
-                setInput('down', isDown); // Stick Crawl
-            }
-        });
-        stick.on('end', () => {
-            setInput('right', false); setInput('left', false); setInput('up', false); setInput('down', false);
+        // 1. Initialize Nipple.js Joystick
+        const stickZone = document.getElementById('left-zone');
+        const stickManager = nipplejs.create({
+            zone: stickZone,
+            mode: 'static',
+            position: { left: '50%', top: '50%' },
+            color: 'white',
+            size: 100
         });
 
-        // 2. Virtual Buttons
+        stickManager.on('move', (evt, data) => {
+            const angle = data.angle.degree;
+            // Simple 4-way direction logic
+            const isRight = angle >= 337.5 || angle < 22.5 || (angle >= 292.5 && angle < 337.5) || (angle >= 22.5 && angle < 67.5);
+            const isLeft = angle >= 157.5 && angle < 202.5 || (angle >= 112.5 && angle < 157.5) || (angle >= 202.5 && angle < 247.5);
+            const isUp = angle >= 67.5 && angle < 112.5; // Optional Jump via Stick
+            
+            setInput('right', isRight);
+            setInput('left', isLeft);
+        });
+
+        stickManager.on('end', () => {
+            setInput('right', false);
+            setInput('left', false);
+        });
+
+        // 2. Initialize Buttons (Virtual Gamepad Style)
         const btnZone = document.getElementById('right-zone');
-        btnZone.innerHTML = '';
-        const makeBtn = (txt, cls, x, y, act) => {
-            const b = document.createElement('div');
-            b.className = `v-btn ${cls}`; b.innerText = txt;
-            b.style.width = '60px'; b.style.height = '60px';
-            b.style.left = x+'px'; b.style.top = y+'px';
-            const press = (s) => (e) => { e.preventDefault(); s ? b.classList.add('pressed') : b.classList.remove('pressed'); setInput(act, s); };
-            b.addEventListener('touchstart', press(true)); b.addEventListener('touchend', press(false));
-            b.addEventListener('mousedown', press(true)); b.addEventListener('mouseup', press(false));
-            btnZone.appendChild(b);
-        };
+        btnZone.innerHTML = ''; // Clear
         
-        // Layout: A=Jump, B=Atk, X=Block
-        makeBtn('A', 'v-btn-a', 50, 90, 'jump');
-        makeBtn('B', 'v-btn-b', 100, 40, 'atk');
-        makeBtn('X', 'v-btn-x', 0, 40, 'block');
+        // Helper to Create Button
+        function createGameBtn(id, label, x, y, size, cls, actionKey) {
+            const btn = document.createElement('div');
+            btn.className = 'v-btn ' + cls;
+            btn.innerText = label;
+            btn.style.width = size + 'px';
+            btn.style.height = size + 'px';
+            btn.style.left = x + 'px';
+            btn.style.top = y + 'px';
+            
+            // Touch Events
+            const start = (e) => { e.preventDefault(); btn.classList.add('pressed'); setInput(actionKey, true); };
+            const end = (e) => { e.preventDefault(); btn.classList.remove('pressed'); setInput(actionKey, false); };
+            
+            btn.addEventListener('touchstart', start);
+            btn.addEventListener('touchend', end);
+            btn.addEventListener('mousedown', start);
+            btn.addEventListener('mouseup', end);
+            
+            btnZone.appendChild(btn);
+        }
+
+        // Diamond Layout Configuration
+        // Center of zone is roughly 75, 75. 
+        // A (Bottom), B (Right), X (Left), Y (Top)
+        // Mapping: A=Jump, B=Atk, X=Block
+        createGameBtn('btn-a', 'A', 50, 90, 50, 'v-btn-a', 'jump');  // Bottom
+        createGameBtn('btn-b', 'B', 95, 45, 50, 'v-btn-b', 'atk');   // Right
+        createGameBtn('btn-x', 'X', 5, 45, 50, 'v-btn-x', 'block');  // Left
     }
 
-    function setInput(k, v) {
-        if(isHost) inputs.p1[k] = v;
-        else {
-            const i = {...inputs.p2}; i[k]=v; inputs.p2[k]=v;
-            if(!isOffline && conn && conn.open) conn.send({type:'INPUT', state:i});
+    function setInput(key, pressed) {
+        if(isHost) {
+            inputs.p1[key] = pressed;
+        } else {
+            // Client inputs
+            const myInputs = { ...inputs.p2 };
+            myInputs[key] = pressed;
+            inputs.p2[key] = pressed; // Predictive local update
+            if(!isOffline && conn && conn.open) conn.send({ type: 'INPUT', state: myInputs });
         }
     }
 
-    // Keyboard
-    window.onkeydown = e => {
-        const m = {ArrowLeft:'left', ArrowRight:'right', ArrowUp:'jump', ArrowDown:'down', z:'atk', x:'block'};
-        if(m[e.key]) setInput(m[e.key], true);
-    };
-    window.onkeyup = e => {
-        const m = {ArrowLeft:'left', ArrowRight:'right', ArrowUp:'jump', ArrowDown:'down', z:'atk', x:'block'};
-        if(m[e.key]) setInput(m[e.key], false);
-    };
+    /* Keyboard Fallback */
+    window.addEventListener('keydown', (e) => {
+        const map = { 'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowUp': 'jump', 'KeyZ': 'atk', 'KeyX': 'block' };
+        if(map[e.code]) setInput(map[e.code], true);
+    });
+    window.addEventListener('keyup', (e) => {
+        const map = { 'ArrowLeft': 'left', 'ArrowRight': 'right', 'ArrowUp': 'jump', 'KeyZ': 'atk', 'KeyX': 'block' };
+        if(map[e.code]) setInput(map[e.code], false);
+    });
 
+    /* --- GAME ENGINE (HOST ONLY) --- */
     function startGame() {
         document.getElementById('wait-msg').style.display = 'none';
         if(gameLoopId) cancelAnimationFrame(gameLoopId);
-        gameLoopId = requestAnimationFrame(loop);
+        gameLoopId = requestAnimationFrame(gameLoop);
+        
+        setInterval(() => {
+            if(gameState.winner || (!isConnected && !isOffline)) return;
+            if(gameState.time > 0) gameState.time--;
+            else checkWinCondition();
+        }, 1000);
     }
     
     function resetGame() {
-        Object.assign(gameState, {
-            time: 60, winner: null,
-            p1: { x: 100, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: 1, state: 'idle', ducking: false },
-            p2: { x: 600, y: GROUND_Y, vx: 0, vy: 0, hp: MAX_HP, dir: -1, state: 'idle', ducking: false }
-        });
-        if(!isOffline) conn.send({type:'STATE', state:gameState});
+        gameState.p1.hp = MAX_HP; gameState.p1.x = 100; gameState.p1.y = GROUND_Y; gameState.p1.state = 'idle';
+        gameState.p2.hp = MAX_HP; gameState.p2.x = 600; gameState.p2.y = GROUND_Y; gameState.p2.state = 'idle';
+        gameState.time = 60;
+        gameState.winner = null;
+        if(!isOffline) conn.send({ type: 'STATE', state: gameState });
     }
 
     function requestRematch() {
         if(isHost) resetGame();
-        else conn.send({type:'REMATCH'});
+        else conn.send({ type: 'REMATCH' });
         document.getElementById('rematch-btn').classList.add('hidden');
         document.getElementById('wait-msg').innerText = "";
     }
 
-    function loop() {
-        if(isHost && !gameState.winner) {
-            // Tick Timer
-            if(gameState.frameCount++ % 60 === 0 && gameState.time > 0) gameState.time--;
-            if(gameState.time <= 0) checkWin();
-            
-            updateP(gameState.p1, inputs.p1, gameState.p2);
-            updateP(gameState.p2, inputs.p2, gameState.p1);
-            
-            if(!isOffline && conn && conn.open) conn.send({type:'STATE', state:gameState});
-        }
-        
-        render();
-        updateHUD();
-        
-        if(gameState.winner && document.getElementById('waiting-overlay').style.display === 'none') {
-            document.getElementById('waiting-overlay').style.display = 'flex';
-            document.getElementById('wait-msg').innerText = gameState.winner;
-            document.getElementById('rematch-btn').classList.remove('hidden');
-        }
-        requestAnimationFrame(loop);
-    }
+    function updatePhysics(p, input, enemy) {
+        if(gameState.winner) return;
 
-    function updateP(p, i, e) {
-        if(p.state === 'stun') {
-            if(Math.random() > 0.9) p.state = 'idle'; // Simple stun recovery
-            return;
+        // Movement
+        if (p.state !== 'stun') {
+            if (input.left) { p.vx = -SPEED; p.dir = -1; }
+            else if (input.right) { p.vx = SPEED; p.dir = 1; }
+            else p.vx = 0;
+
+            if (input.jump && p.y === GROUND_Y) p.vy = JUMP_FORCE;
         }
 
-        // Logic
-        const isCrawl = i.down && p.y === GROUND_Y;
-        const speed = isCrawl ? CRAWL_SPEED : SPEED;
-        p.ducking = isCrawl;
-
-        // Move
-        if(i.left) { p.vx = -speed; p.dir = -1; }
-        else if(i.right) { p.vx = speed; p.dir = 1; }
-        else p.vx = 0;
-
-        // Jump (Button or Stick Up)
-        if((i.jump || i.up) && p.y === GROUND_Y && !isCrawl) p.vy = JUMP_FORCE;
-
-        // Physics
+        // Gravity
         p.vy += GRAVITY;
         p.x += p.vx;
         p.y += p.vy;
-        
-        if(p.y > GROUND_Y) { p.y = GROUND_Y; p.vy = 0; }
-        if(p.x < 0) p.x = 0; if(p.x > CANVAS_W - PLAYER_W) p.x = CANVAS_W - PLAYER_W;
 
-        // Combat
-        if(p.cooldown > 0) p.cooldown--;
-        if(i.atk && p.cooldown === 0 && !isCrawl) {
-            p.state = 'attack'; p.cooldown = ATTACK_COOLDOWN;
-            // Hitbox
-            if(Math.abs(p.x - e.x) < 90 && Math.abs(p.y - e.y) < 50 && ((p.x<e.x && p.dir===1)||(p.x>e.x && p.dir===-1))) {
-                if(inputs[e===gameState.p1?'p1':'p2'].block) {
-                     e.hp -= 2; e.vx = p.dir*5;
+        // Ground Collision
+        if (p.y > GROUND_Y) { p.y = GROUND_Y; p.vy = 0; }
+        
+        // Wall Collision
+        if (p.x < 0) p.x = 0;
+        if (p.x > CANVAS_W - PLAYER_W) p.x = CANVAS_W - PLAYER_W;
+
+        // Attacks
+        if (p.cooldown > 0) p.cooldown--;
+        
+        if (input.atk && p.cooldown === 0 && p.state !== 'stun') {
+            p.state = 'attack';
+            p.cooldown = ATTACK_COOLDOWN;
+            
+            const dist = Math.abs(p.x - enemy.x);
+            const facingEnemy = (p.x < enemy.x && p.dir === 1) || (p.x > enemy.x && p.dir === -1);
+            
+            if (dist < ATTACK_RANGE && Math.abs(p.y - enemy.y) < 50 && facingEnemy) {
+                if(inputs[enemy === gameState.p1 ? 'p1' : 'p2'].block) {
+                    enemy.hp -= 2; // Chip
+                    enemy.vx = p.dir * 10;
                 } else {
-                     e.hp -= 8; e.state = 'stun'; e.vy = -4; e.vx = p.dir*8;
+                    enemy.hp -= 10;
+                    enemy.state = 'stun';
+                    enemy.vy = -5;
+                    enemy.vx = p.dir * 10;
+                    setTimeout(() => enemy.state = 'idle', 300);
                 }
             }
-        } else if(p.cooldown < ATTACK_COOLDOWN-10 && p.state === 'attack') p.state = 'idle';
+        } else if (p.cooldown < ATTACK_COOLDOWN - 10 && p.state === 'attack') {
+            p.state = 'idle';
+        }
         
-        if(i.block) p.state = 'block';
-        else if(p.state === 'block') p.state = 'idle';
-        
-        if(p.hp <= 0) checkWin();
+        // Block Visual
+        if(input.block && p.state === 'idle') p.state = 'block';
+        if(!input.block && p.state === 'block') p.state = 'idle';
     }
 
-    function checkWin() {
-        if(gameState.p1.hp <= 0 && gameState.p2.hp <= 0) gameState.winner = "DRAW";
-        else if(gameState.p1.hp <= 0) gameState.winner = "P2 WINS";
-        else if(gameState.p2.hp <= 0) gameState.winner = "P1 WINS";
-        else if(gameState.time === 0) gameState.winner = (gameState.p1.hp > gameState.p2.hp) ? "P1 WINS" : (gameState.p2.hp > gameState.p1.hp ? "P2 WINS" : "DRAW");
+    function checkWinCondition() {
+        if (gameState.p1.hp <= 0 && gameState.p2.hp <= 0) gameState.winner = "DRAW";
+        else if (gameState.p1.hp <= 0) gameState.winner = "PLAYER 2 WINS";
+        else if (gameState.p2.hp <= 0) gameState.winner = "PLAYER 1 WINS";
+        else if (gameState.time === 0) {
+            gameState.winner = (gameState.p1.hp > gameState.p2.hp) ? "PLAYER 1 WINS" : "PLAYER 2 WINS";
+            if (gameState.p1.hp === gameState.p2.hp) gameState.winner = "DRAW";
+        }
     }
 
+    function gameLoop() {
+        if (!isHost) return;
+
+        updatePhysics(gameState.p1, inputs.p1, gameState.p2);
+        updatePhysics(gameState.p2, inputs.p2, gameState.p1);
+        checkWinCondition();
+        
+        if(!isOffline && conn && conn.open) conn.send({ type: 'STATE', state: gameState });
+
+        render();
+        updateHUD();
+        handleWinnerUI();
+        
+        requestAnimationFrame(gameLoop);
+    }
+
+    /* --- RENDERING --- */
     const cvs = document.getElementById('gameCanvas');
     const ctx = cvs.getContext('2d');
-    
+
     function resizeCanvas() {
-        const c = document.getElementById('canvas-container');
-        const s = Math.min(c.clientWidth/CANVAS_W, c.clientHeight/CANVAS_H);
-        cvs.style.width = (CANVAS_W*s)+'px'; cvs.style.height = (CANVAS_H*s)+'px';
+        const container = document.getElementById('canvas-container');
+        const scale = Math.min(container.clientWidth / CANVAS_W, container.clientHeight / CANVAS_H);
+        cvs.style.width = (CANVAS_W * scale) + 'px';
+        cvs.style.height = (CANVAS_H * scale) + 'px';
     }
-    window.onresize = resizeCanvas;
+    window.addEventListener('resize', resizeCanvas);
 
     function render() {
-        ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
-        
-        // Floor
-        ctx.fillStyle = '#1a1a1a';
-        ctx.fillRect(0, GROUND_Y, CANVAS_W, CANVAS_H - GROUND_Y);
-        ctx.fillStyle = '#333';
-        ctx.fillRect(0, GROUND_Y, CANVAS_W, 10);
+        ctx.fillStyle = '#111'; // Transparent handled by CSS bg
+        ctx.clearRect(0,0, CANVAS_W, CANVAS_H);
 
-        // Players
-        // We pass ducking state to animator for sprite selection
-        p1Sprite.draw(ctx, gameState.p1.x, gameState.p1.y, PLAYER_W, PLAYER_H, gameState.p1.dir, gameState.p1.state, gameState.p1.vx, gameState.p1.ducking);
-        p2Sprite.draw(ctx, gameState.p2.x, gameState.p2.y, PLAYER_W, PLAYER_H, gameState.p2.dir, gameState.p2.state, gameState.p2.vx, gameState.p2.ducking);
+        // Ground
+        ctx.fillStyle = '#444';
+        ctx.fillRect(0, GROUND_Y + PLAYER_H, CANVAS_W, 20);
+
+        drawPlayer(gameState.p1);
+        drawPlayer(gameState.p2);
+    }
+
+    function drawPlayer(p) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        
+        ctx.fillStyle = p.color;
+        if(p.state === 'stun') ctx.fillStyle = '#555';
+        if(p.state === 'block') ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+        
+        ctx.fillRect(0, 0, PLAYER_W, PLAYER_H);
+        if(p.state === 'block') ctx.strokeRect(0,0, PLAYER_W, PLAYER_H);
+
+        // Eyes
+        ctx.fillStyle = 'white';
+        const eyeX = p.dir === 1 ? 30 : 5;
+        ctx.fillRect(eyeX, 20, 15, 15);
+        
+        // Attack
+        if(p.state === 'attack') {
+            ctx.fillStyle = 'yellow';
+            const punchX = p.dir === 1 ? PLAYER_W : -40;
+            ctx.fillRect(punchX, 40, 40, 20);
+        }
+
+        ctx.restore();
     }
 
     function updateHUD() {
-        document.getElementById('p1-fill').style.width = Math.max(0, (gameState.p1.hp/MAX_HP)*100)+'%';
-        document.getElementById('p2-fill').style.width = Math.max(0, (gameState.p2.hp/MAX_HP)*100)+'%';
+        document.getElementById('p1-fill').style.width = Math.max(0, (gameState.p1.hp / MAX_HP) * 100) + '%';
+        document.getElementById('p2-fill').style.width = Math.max(0, (gameState.p2.hp / MAX_HP) * 100) + '%';
         document.getElementById('timer').innerText = gameState.time;
+    }
+
+    function handleWinnerUI() {
+        if(gameState.winner) {
+            document.getElementById('waiting-overlay').style.display = 'flex';
+            document.getElementById('wait-msg').style.display = 'block';
+            document.getElementById('wait-msg').innerText = gameState.winner;
+            document.getElementById('rematch-btn').classList.remove('hidden');
+        } else {
+             document.getElementById('waiting-overlay').style.display = 'none';
+        }
     }
 </script>
 </body>
